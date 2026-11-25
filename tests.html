@@ -288,6 +288,78 @@
     assertEq(inkLight, '#0f172a', '--ink in light');
   });
 
+  // --- Task 6: multi-character profiles ---
+  t('profile: save new creates profile and activates it', function (win) {
+    win.localStorage.removeItem('aib_profiles_v1');
+    win.localStorage.removeItem('aib_current_profile');
+    win.localStorage.removeItem('aib_state_v1');
+    win.prompt = function () { return 'Aria'; };
+    setValue(win, 'charName', 'Aria Sterling');
+    win.document.getElementById('saveProfileBtn').click();
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(list.length, 1, 'profile count');
+    assert(JSON.stringify(list[0].state).indexOf('Aria Sterling') !== -1, 'state lacks character name');
+    assertEq(win.localStorage.getItem('aib_current_profile'), list[0].id, 'current profile id');
+    var sel = win.document.getElementById('profileSelect');
+    assertEq(sel.value, list[0].id, 'select value');
+    assertEq(sel.options[sel.selectedIndex].textContent, 'Aria', 'select label');
+  });
+
+  t('profile: switch flushes edits', async function (win) {
+    setValue(win, 'charName', 'Beta Ray');
+    await sleep(700);
+    win.prompt = function () { return 'Kedua'; };
+    win.document.getElementById('saveProfileBtn').click();
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(list.length, 2, 'two profiles');
+    var sel = win.document.getElementById('profileSelect');
+    sel.value = list[0].id;
+    sel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assert(JSON.stringify(after[0].state).indexOf('Beta Ray') !== -1,
+      'first profile not flushed on switch: ' + JSON.stringify(after[0].state).slice(0, 160));
+  });
+
+  t('profile: reload restores working state', async function (win) {
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    win.localStorage.setItem('aib_state_v1', JSON.stringify({ charName: 'Gamma Delta' }));
+    win.localStorage.setItem('aib_current_profile', list[0].id);
+    await withFreshPage(function (w2) {
+      assertEq(w2.document.getElementById('charName').value, 'Gamma Delta', 'working state wins over profile snapshot');
+    });
+  });
+
+  t('profile: export/import round-trip', function (win) {
+    var arr = JSON.parse(win.AIB.profiles.exportJSON());
+    assertEq(arr.length, 2, 'exported count');
+    var payload = JSON.stringify([
+      { id: arr[0].id, name: 'Aria Updated', savedAt: 999, state: { charName: 'Updated' } },
+      { id: 'p-new-1', name: 'Baru', savedAt: 999, state: { charName: 'Baru' } }
+    ]);
+    var r = win.AIB.profiles.importJSON(payload);
+    assertEq(r.added, 1, 'added');
+    assertEq(r.updated, 1, 'updated');
+    var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(after.length, 3, 'total after import');
+    var updated = after.filter(function (p) { return p.id === arr[0].id; })[0];
+    assertEq(updated.name, 'Aria Updated', 'existing profile updated in place');
+  });
+
+  t('profile: delete removes only that profile', function (win) {
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(list.length, 3, 'three profiles before delete');
+    win.confirm = function () { return true; };
+    var current = win.localStorage.getItem('aib_current_profile');
+    var sel = win.document.getElementById('profileSelect');
+    sel.value = current;
+    win.document.getElementById('deleteProfileBtn').click();
+    var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(after.length, 2, 'two profiles left');
+    assert(!after.some(function (p) { return p.id === current; }), 'deleted profile still present');
+    assert(after.some(function (p) { return p.id === list[1].id; }), 'unrelated profile lost');
+    assertEq(win.localStorage.getItem('aib_current_profile'), null, 'current profile pointer cleared');
+  });
+
   run();
 })();
 </script>

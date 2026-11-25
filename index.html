@@ -50,6 +50,23 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
   .field-error{color:var(--danger);font-size:12.5px;margin-top:6px;}
   .required-mark{color:var(--danger);font-weight:700;}
 
+  /* ---------- Profile bar ---------- */
+  .profile-bar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+    padding:12px 14px;margin-bottom:18px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);box-shadow:var(--shadow);
+  }
+  .profile-bar label{font-size:12.5px;font-weight:600;color:var(--ink-muted);white-space:nowrap;}
+  .profile-bar select{
+    flex:1 1 160px;min-width:140px;
+    padding:9px 12px;font-size:13.5px;
+    border:1px solid var(--border);border-radius:var(--radius-sm);
+    background:var(--bg);color:var(--ink);
+  }
+  .profile-actions{display:flex;flex-wrap:wrap;gap:8px;}
+  .profile-actions .btn-secondary{padding:9px 13px;font-size:12.5px;}
+
   /* ---------- Header right + theme toggle ---------- */
   .header-right{display:flex;align-items:center;gap:12px;}
   .theme-toggle{
@@ -967,6 +984,18 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
       <span class="eyebrow">Character Builder</span>
       <h1>Bangun identitas AI Influencer Anda</h1>
       <p>Isi data karakter di bawah ini. Sistem akan menyusun ringkasan identitas, profil kepribadian, dan tiga paket prompt visual siap pakai untuk NanoBanana, Flux, Seedream, ChatGPT Image, Gemini Image, dan generator lainnya.</p>
+    </div>
+
+    <div class="profile-bar" id="profileBar">
+      <label for="profileSelect">Karakter tersimpan</label>
+      <select id="profileSelect"><option value="">Karakter baru</option></select>
+      <div class="profile-actions">
+        <button type="button" class="btn-secondary" id="saveProfileBtn">Simpan Karakter</button>
+        <button type="button" class="btn-secondary" id="deleteProfileBtn">Hapus</button>
+        <button type="button" class="btn-secondary" id="exportProfileBtn">Ekspor</button>
+        <button type="button" class="btn-secondary" id="importProfileBtn">Impor</button>
+        <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+      </div>
     </div>
 
     <div class="builder-form" id="builderForm">
@@ -2170,9 +2199,21 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     if(AIB._storageOff) return;
     clearTimeout(AIB._saveTimer);
     try{
-      localStorage.setItem('aib_state_v1', JSON.stringify(aibSerialize(document.getElementById('builderForm'))));
+      var state = aibSerialize(document.getElementById('builderForm'));
+      localStorage.setItem('aib_state_v1', JSON.stringify(state));
+      // Profile auto-update: flush edits into the active profile on the same path.
+      var cur = localStorage.getItem('aib_current_profile');
+      if(cur){
+        var list = JSON.parse(localStorage.getItem('aib_profiles_v1') || '[]');
+        for(var i=0;i<list.length;i++){
+          if(list[i].id === cur){ list[i].state = state; list[i].savedAt = Date.now(); break; }
+        }
+        localStorage.setItem('aib_profiles_v1', JSON.stringify(list));
+      }
     }catch(e){
       AIB._storageOff = true;
+      var pb = document.getElementById('profileBar');
+      if(pb) pb.classList.add('hidden');
       showToast('Autosave tidak tersedia di browser ini', true);
     }
   };
@@ -2185,7 +2226,105 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
 
   AIB.restore = function(){
     var state = AIB.getState();
-    if(state) AIB.setState(state);
+    if(state){ AIB.setState(state); return; }
+    // No working state: fall back to the active profile snapshot.
+    var cur = null;
+    try{ cur = localStorage.getItem('aib_current_profile'); }catch(e){}
+    if(cur && AIB.profiles){
+      var list = AIB.profiles._read();
+      for(var i=0;i<list.length;i++){
+        if(list[i].id === cur){ AIB.setState(list[i].state || {}); break; }
+      }
+    }
+  };
+
+  /* ============ AIB: multi-character profiles ============ */
+  AIB.profiles = {
+    _read: function(){
+      try{ return JSON.parse(localStorage.getItem('aib_profiles_v1')) || []; }
+      catch(e){ return []; }
+    },
+    _write: function(list){
+      try{ localStorage.setItem('aib_profiles_v1', JSON.stringify(list)); }
+      catch(e){ AIB._storageOff = true; }
+    },
+    _getPointer: function(){
+      try{ return localStorage.getItem('aib_current_profile'); }catch(e){ return null; }
+    },
+    _setPointer: function(id){
+      try{
+        if(id) localStorage.setItem('aib_current_profile', id);
+        else localStorage.removeItem('aib_current_profile');
+      }catch(e){}
+    },
+    list: function(){ return this._read(); },
+    saveNew: function(name){
+      var p = {
+        id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name: name,
+        savedAt: Date.now(),
+        state: aibSerialize(document.getElementById('builderForm'))
+      };
+      var list = this._read();
+      list.push(p);
+      this._write(list);
+      this._setPointer(p.id);
+      this._renderSelect();
+      return p;
+    },
+    load: function(id){
+      if(!id) return;
+      var list = this._read();
+      var p = null;
+      for(var i=0;i<list.length;i++){ if(list[i].id === id){ p = list[i]; break; } }
+      if(!p) return;
+      AIB.saveState(); // flush current form into the outgoing profile first
+      this._setPointer(p.id);
+      AIB.setState(p.state || {});
+      this._renderSelect();
+      updateLivePreview();
+    },
+    remove: function(id){
+      var list = this._read().filter(function(p){ return p.id !== id; });
+      this._write(list);
+      if(this._getPointer() === id) this._setPointer(null);
+      this._renderSelect();
+    },
+    exportJSON: function(){ return JSON.stringify(this._read()); },
+    importJSON: function(text){
+      var incoming = JSON.parse(text);
+      if(!Array.isArray(incoming)) throw new Error('Format profil tidak valid');
+      var list = this._read();
+      var added = 0, updated = 0;
+      for(var i=0;i<incoming.length;i++){
+        var item = incoming[i];
+        if(!item || !item.id) continue;
+        var found = false;
+        for(var j=0;j<list.length;j++){
+          if(list[j].id === item.id){ list[j] = item; updated++; found = true; break; }
+        }
+        if(!found){ list.push(item); added++; }
+      }
+      this._write(list);
+      this._renderSelect();
+      return {added: added, updated: updated};
+    },
+    _renderSelect: function(){
+      var sel = document.getElementById('profileSelect');
+      if(!sel) return;
+      var list = this._read();
+      var cur = this._getPointer();
+      sel.innerHTML = '<option value="">Karakter baru</option>';
+      for(var i=0;i<list.length;i++){
+        var o = document.createElement('option');
+        o.value = list[i].id;
+        o.textContent = list[i].name;
+        sel.appendChild(o);
+      }
+      var valid = cur && list.some(function(p){ return p.id === cur; });
+      sel.value = valid ? cur : '';
+      if(!valid) this._setPointer(null);
+    }
   };
 
   AIB.resetForm = function(){
@@ -2353,6 +2492,12 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
   /* ============ BOOTSTRAP ============ */
   function init(){
     AIB.initTheme();
+    // Storage probe: no localStorage (private mode / file:// restrictions) -> degrade.
+    try{ localStorage.setItem('aib_probe', '1'); localStorage.removeItem('aib_probe'); }
+    catch(e){
+      AIB._storageOff = true;
+      document.getElementById('profileBar').classList.add('hidden');
+    }
     initFields();
     initOtherToggles();
     updateCharacterTypeUI();
@@ -2365,6 +2510,54 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     document.getElementById('resetBtn').addEventListener('click', AIB.resetForm);
     document.getElementById('themeToggle').addEventListener('click', AIB.toggleTheme);
     AIB.initSectionNav();
+
+    /* ---- profiles ---- */
+    AIB.profiles._renderSelect();
+    document.getElementById('profileSelect').addEventListener('change', function(){
+      if(this.value) AIB.profiles.load(this.value);
+    });
+    document.getElementById('saveProfileBtn').addEventListener('click', function(){
+      var name = prompt('Nama karakter:', document.getElementById('charName').value || '');
+      if(!name || !name.trim()) return;
+      AIB.profiles.saveNew(name.trim());
+      showToast('Karakter "' + name.trim() + '" disimpan');
+    });
+    document.getElementById('deleteProfileBtn').addEventListener('click', function(){
+      var sel = document.getElementById('profileSelect');
+      var id = sel.value || AIB.profiles._getPointer();
+      if(!id){ showToast('Belum ada karakter yang dipilih', true); return; }
+      if(!confirm('Hapus karakter ini? Profil lain tidak ikut terhapus.')) return;
+      AIB.profiles.remove(id);
+      showToast('Karakter dihapus');
+    });
+    document.getElementById('exportProfileBtn').addEventListener('click', function(){
+      var blob = new Blob([AIB.profiles.exportJSON()], {type: 'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'aib-profiles.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      showToast('Profil diekspor');
+    });
+    document.getElementById('importProfileBtn').addEventListener('click', function(){
+      document.getElementById('importFile').click();
+    });
+    document.getElementById('importFile').addEventListener('change', function(){
+      var file = this.files && this.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      var input = this;
+      reader.onload = function(){
+        try{
+          var r = AIB.profiles.importJSON(String(reader.result));
+          showToast(r.added + ' profil baru, ' + r.updated + ' diperbarui');
+        }catch(err){
+          showToast('Impor gagal: file tidak valid', true);
+        }
+        input.value = '';
+      };
+      reader.readAsText(file);
+    });
 
     document.getElementById('generateBtn').addEventListener('click', function(){
       var v = AIB.validate();
