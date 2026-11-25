@@ -173,6 +173,51 @@
     assert(win.AIB._storageOff === true, 'AIB._storageOff not set');
   });
 
+  // --- Task 3: validation ---
+  t('validation: required markers present', function (win) {
+    ['charName', 'charTypeSelect', 'nicheSelect'].forEach(function (id) {
+      var el = win.document.getElementById(id);
+      assertEq(el.getAttribute('aria-required'), 'true', id + ' aria-required');
+      var label = win.document.querySelector('label[for="' + id + '"]');
+      assert(label, id + ' label missing');
+      assert(label.textContent.indexOf('*') !== -1, id + ' label has no *: ' + label.textContent);
+    });
+  });
+
+  t('validation: empty required blocks generate', function (win) {
+    ['charName', 'charTypeSelect', 'nicheSelect'].forEach(function (id) {
+      var el = win.document.getElementById(id);
+      el.value = '';
+      el.dispatchEvent(new win.Event('input', { bubbles: true }));
+      el.dispatchEvent(new win.Event('change', { bubbles: true }));
+    });
+    var before = win.document.getElementById('resultsSection').textContent;
+    win.confirm = function () { return true; };
+    win.document.getElementById('generateBtn').click();
+    var err = win.document.getElementById('charNameError');
+    assert(!err.classList.contains('hidden'), 'charNameError not visible');
+    assert(err.textContent.trim().length > 0, 'charNameError text empty');
+    assertEq(win.document.activeElement, win.document.getElementById('charName'), 'focus first invalid');
+    assertEq(win.document.getElementById('resultsSection').textContent, before, 'results unchanged');
+  });
+
+  t('validation: error clears on input', function (win) {
+    var el = win.document.getElementById('charName');
+    el.value = 'Aria';
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+    var err = win.document.getElementById('charNameError');
+    assert(err.classList.contains('hidden'), 'charNameError still visible after input');
+  });
+
+  t('validation: valid form passes', function (win) {
+    setValue(win, 'charName', 'Aria Sterling');
+    setValue(win, 'charTypeSelect', 'Manusia');
+    setValue(win, 'nicheSelect', 'Fashion');
+    var v = win.AIB.validate();
+    assert(v.ok, 'validate().ok should be true');
+    assertEq(v.firstInvalid, null, 'firstInvalid should be null');
+  });
+
   run();
 })();
 </script>

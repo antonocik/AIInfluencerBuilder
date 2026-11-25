@@ -47,6 +47,9 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
   p{margin:0;color:var(--ink-muted);}
   .hidden{display:none !important;}
 
+  .field-error{color:var(--danger);font-size:12.5px;margin-top:6px;}
+  .required-mark{color:var(--danger);font-weight:700;}
+
   a,button,input,select,textarea{font-family:inherit;}
   button{cursor:pointer;}
   input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{
@@ -902,16 +905,18 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
         </div>
         <div class="field-grid">
           <div class="field field-span-2">
-            <label for="charTypeSelect">Jenis Karakter</label>
-            <select id="charTypeSelect"><option value="" disabled="" selected="">Pilih jenis karakter</option><option value="Manusia">Manusia</option><option value="Binatang / Hewan">Binatang / Hewan</option><option value="Karakter Kartun">Karakter Kartun</option><option value="Dinosaurus">Dinosaurus</option><option value="Fantasi / Mitos">Fantasi / Mitos</option><option value="Robot / Mekanik">Robot / Mekanik</option><option value="Monster / Makhluk">Monster / Makhluk</option><option value="Lainnya">Lainnya</option></select>
+            <label for="charTypeSelect">Jenis Karakter <span class="required-mark">*</span></label>
+            <select id="charTypeSelect" aria-required="true"><option value="" disabled="" selected="">Pilih jenis karakter</option><option value="Manusia">Manusia</option><option value="Binatang / Hewan">Binatang / Hewan</option><option value="Karakter Kartun">Karakter Kartun</option><option value="Dinosaurus">Dinosaurus</option><option value="Fantasi / Mitos">Fantasi / Mitos</option><option value="Robot / Mekanik">Robot / Mekanik</option><option value="Monster / Makhluk">Monster / Makhluk</option><option value="Lainnya">Lainnya</option></select>
+            <p class="field-error hidden" id="charTypeError"></p>
           </div>
           <div class="field other-wrap hidden" id="charTypeSelectOtherWrap">
             <label for="charTypeOther">Sebutkan jenis karakter lainnya</label>
             <input type="text" id="charTypeOther" placeholder="Contoh: Dragon, Mecha, Alien, dll">
           </div>
           <div class="field">
-            <label for="charName">Nama Karakter</label>
-            <input type="text" id="charName" placeholder="Contoh: Aria Sterling">
+            <label for="charName">Nama Karakter <span class="required-mark">*</span></label>
+            <input type="text" id="charName" aria-required="true" placeholder="Contoh: Aria Sterling">
+            <p class="field-error hidden" id="charNameError"></p>
           </div>
           <div class="field">
             <label for="charAge">Umur</label>
@@ -965,7 +970,7 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
           <span class="section-num">03</span>
           <div><h2>Niche Konten</h2><p>Arah utama konten yang dibuat.</p></div>
         </div>
-        <div class="field"><select id="nicheSelect"><option value="" disabled="" selected="">Pilih niche konten</option><option value="Fashion">Fashion</option><option value="Beauty">Beauty</option><option value="Lifestyle">Lifestyle</option><option value="Travel">Travel</option><option value="Fitness">Fitness</option><option value="Teknologi">Teknologi</option><option value="Kuliner">Kuliner</option><option value="Gaming">Gaming</option><option value="Edukasi">Edukasi</option><option value="Luxury">Luxury</option><option value="Lainnya">Lainnya</option></select></div>
+        <div class="field"><label for="nicheSelect">Niche Konten <span class="required-mark">*</span></label><select id="nicheSelect" aria-required="true"><option value="" disabled="" selected="">Pilih niche konten</option><option value="Fashion">Fashion</option><option value="Beauty">Beauty</option><option value="Lifestyle">Lifestyle</option><option value="Travel">Travel</option><option value="Fitness">Fitness</option><option value="Teknologi">Teknologi</option><option value="Kuliner">Kuliner</option><option value="Gaming">Gaming</option><option value="Edukasi">Edukasi</option><option value="Luxury">Luxury</option><option value="Lainnya">Lainnya</option></select><p class="field-error hidden" id="nicheError"></p></div>
         <div class="field other-wrap hidden" id="nicheSelectOtherWrap">
           <label for="nicheOther">Sebutkan niche lainnya</label>
           <input type="text" id="nicheOther" placeholder="Tulis niche Anda">
@@ -2135,6 +2140,28 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     showToast('Form direset');
   };
 
+  AIB.validate = function(){
+    var required = [
+      {id:'charName', err:'charNameError', msg:'Nama karakter wajib diisi.'},
+      {id:'charTypeSelect', err:'charTypeError', msg:'Pilih jenis karakter.'},
+      {id:'nicheSelect', err:'nicheError', msg:'Pilih niche konten.'}
+    ];
+    var firstInvalid = null;
+    required.forEach(function(r){
+      var el = document.getElementById(r.id);
+      var errEl = document.getElementById(r.err);
+      if(!el.value || !el.value.trim()){
+        if(!firstInvalid) firstInvalid = el;
+        errEl.textContent = r.msg;
+        errEl.classList.remove('hidden');
+      } else {
+        errEl.textContent = '';
+        errEl.classList.add('hidden');
+      }
+    });
+    return {ok: !firstInvalid, firstInvalid: firstInvalid};
+  };
+
   /* ============ BOOTSTRAP ============ */
   function init(){
     initFields();
@@ -2148,7 +2175,25 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     document.getElementById('builderForm').addEventListener('change', AIB.scheduleSave);
     document.getElementById('resetBtn').addEventListener('click', AIB.resetForm);
 
-    document.getElementById('generateBtn').addEventListener('click', renderResults);
+    document.getElementById('generateBtn').addEventListener('click', function(){
+      var v = AIB.validate();
+      if(!v.ok){
+        v.firstInvalid.focus();
+        showToast('Lengkapi field wajib dulu', true);
+        return;
+      }
+      renderResults();
+    });
+    [['charName','charNameError'],['charTypeSelect','charTypeError'],['nicheSelect','nicheError']].forEach(function(pair){
+      var el = document.getElementById(pair[0]);
+      var clear = function(){
+        var e = document.getElementById(pair[1]);
+        e.classList.add('hidden');
+        e.textContent = '';
+      };
+      el.addEventListener('input', clear);
+      el.addEventListener('change', clear);
+    });
     document.getElementById('copyAllBtn').addEventListener('click', copyAll);
     document.getElementById('downloadBtn').addEventListener('click', downloadTXT);
     initCopyButtons();
