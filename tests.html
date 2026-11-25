@@ -255,6 +255,39 @@
     assertEq(win.document.getElementById('sectionCount').textContent, 'Bagian 4 dari 9', 'count after next');
   });
 
+  // --- Task 5: dark mode ---
+  t('theme: first visit matches system', async function (win) {
+    win.localStorage.removeItem('aib_theme');
+    await withFreshPage(function (w2) {
+      var expected = w2.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      assertEq(w2.document.documentElement.getAttribute('data-theme'), expected, 'data-theme');
+    });
+  });
+
+  t('theme: toggle sets dark and persists', function (win) {
+    win.document.getElementById('themeToggle').click();
+    assertEq(win.document.documentElement.getAttribute('data-theme'), 'dark', 'data-theme after toggle');
+    assertEq(win.localStorage.getItem('aib_theme'), 'dark', 'stored theme');
+  });
+
+  t('theme: choice persists across reload, system light ignored', async function (win) {
+    win.localStorage.setItem('aib_theme', 'dark');
+    await withFreshPage(function (w2) {
+      assertEq(w2.document.documentElement.getAttribute('data-theme'), 'dark', 'data-theme after reload');
+    });
+  });
+
+  t('theme: dark palette applied', function (win) {
+    var inkDark = win.getComputedStyle(win.document.documentElement).getPropertyValue('--ink').trim().toLowerCase();
+    assertEq(inkDark, '#e2e8f0', '--ink in dark');
+    var darkBg = win.getComputedStyle(win.document.body).backgroundColor;
+    win.document.getElementById('themeToggle').click();
+    var lightBg = win.getComputedStyle(win.document.body).backgroundColor;
+    assert(darkBg !== lightBg, 'body bg identical in dark and light: ' + darkBg);
+    var inkLight = win.getComputedStyle(win.document.documentElement).getPropertyValue('--ink').trim().toLowerCase();
+    assertEq(inkLight, '#0f172a', '--ink in light');
+  });
+
   run();
 })();
 </script>

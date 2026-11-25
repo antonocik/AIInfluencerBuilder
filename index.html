@@ -50,6 +50,35 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
   .field-error{color:var(--danger);font-size:12.5px;margin-top:6px;}
   .required-mark{color:var(--danger);font-weight:700;}
 
+  /* ---------- Header right + theme toggle ---------- */
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .theme-toggle{
+    width:36px;height:36px;border-radius:10px;flex:0 0 auto;
+    border:1px solid var(--border);background:var(--surface);
+    color:var(--ink-muted);display:flex;align-items:center;justify-content:center;
+    transition:all .15s ease;
+  }
+  .theme-toggle:hover{border-color:var(--primary);color:var(--primary-dark);}
+  .theme-toggle svg{width:17px;height:17px;}
+  .theme-toggle .icon-sun{display:none;}
+  [data-theme=dark] .theme-toggle .icon-sun{display:block;}
+  [data-theme=dark] .theme-toggle .icon-moon{display:none;}
+
+  /* ---------- Dark mode ---------- */
+  [data-theme=dark]{
+    --bg:#0B1220;
+    --surface:#111A2E;
+    --surface-alt:#0E1626;
+    --ink:#E2E8F0;
+    --ink-muted:#94A3B8;
+    --ink-faint:#64748B;
+    --border:#1E2A44;
+    --shadow:0 4px 24px rgba(0,0,0,0.45);
+    --shadow-hover:0 10px 32px rgba(0,0,0,0.5);
+  }
+  [data-theme=dark] .site-header{background:rgba(11,18,32,0.85);}
+  [data-theme=dark] .step-bar{background:rgba(11,18,32,0.92);}
+
   /* ---------- Section navigation ---------- */
   .step-bar{
     position:sticky;top:71px;z-index:30;
@@ -920,7 +949,13 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
         <span class="brand-tag">Character Identity &amp; Prompt Generator</span>
       </div>
     </div>
-    <div class="header-status"><span class="dot"></span>Berjalan di browser Anda, tanpa server</div>
+    <div class="header-right">
+      <div class="header-status"><span class="dot"></span>Berjalan di browser Anda, tanpa server</div>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Ganti mode gelap">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4l1.4-1.4"></path></svg>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -2200,6 +2235,39 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     return {ok: !firstInvalid, firstInvalid: firstInvalid};
   };
 
+  /* ============ AIB: theme ============ */
+  var themeFrozen = false;
+  AIB.currentTheme = function(){
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  };
+  AIB.setTheme = function(theme, persist){
+    document.documentElement.setAttribute('data-theme', theme);
+    if(persist){
+      try{ localStorage.setItem('aib_theme', theme); }catch(e){}
+    }
+  };
+  AIB.toggleTheme = function(){
+    themeFrozen = true;
+    AIB.setTheme(AIB.currentTheme() === 'dark' ? 'light' : 'dark', true);
+  };
+  AIB.initTheme = function(){
+    var saved = null;
+    try{ saved = localStorage.getItem('aib_theme'); }catch(e){}
+    if(saved === 'dark' || saved === 'light'){
+      themeFrozen = true;
+      AIB.setTheme(saved, false);
+      return;
+    }
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    AIB.setTheme(mq.matches ? 'dark' : 'light', false);
+    var onChange = function(e){
+      if(themeFrozen) return;
+      AIB.setTheme(e.matches ? 'dark' : 'light', false);
+    };
+    if(mq.addEventListener) mq.addEventListener('change', onChange);
+    else if(mq.addListener) mq.addListener(onChange);
+  };
+
   /* ============ AIB: section navigation ============ */
   AIB.visibleSections = function(){
     return Array.prototype.slice.call(document.querySelectorAll('.form-section')).filter(function(s){
@@ -2284,6 +2352,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
 
   /* ============ BOOTSTRAP ============ */
   function init(){
+    AIB.initTheme();
     initFields();
     initOtherToggles();
     updateCharacterTypeUI();
@@ -2294,6 +2363,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     document.getElementById('builderForm').addEventListener('input', AIB.scheduleSave);
     document.getElementById('builderForm').addEventListener('change', AIB.scheduleSave);
     document.getElementById('resetBtn').addEventListener('click', AIB.resetForm);
+    document.getElementById('themeToggle').addEventListener('click', AIB.toggleTheme);
     AIB.initSectionNav();
 
     document.getElementById('generateBtn').addEventListener('click', function(){
