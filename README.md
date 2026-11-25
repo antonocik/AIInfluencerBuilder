@@ -6,9 +6,21 @@ Halaman tunggal untuk membangun identitas AI Influencer. Buat profil influencer 
 
 ![AI Influencer Builder](screenshot.png)
 
+Mode gelap:
+
+![AI Influencer Builder mode gelap](screenshot-dark.png)
+
 ## Cara pakai
 
 Buka `index.html` di browser. Isi form di halaman, hasilnya langsung muncul di bagian bawah.
+
+Fitur:
+
+- **Autosave** — isi form tersimpan otomatis (debounce 400 ms) dan pulih saat halaman dimuat ulang.
+- **Validasi** — tiga field wajib (jenis karakter, nama, niche) ditandai `*`; Generate terblokir sampai terisi.
+- **Navigasi bagian** — pill nomor bagian di bawah header (desktop) dan tombol Sebelumnya/Berikutnya di bawah (mobile).
+- **Mode gelap** — tombol di header, mengikuti preferensi sistem saat pertama dibuka.
+- **Beberapa karakter** — simpan, ganti, hapus, ekspor, dan impor profil karakter (JSON).
 
 ## Struktur halaman
 
