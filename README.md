@@ -1,6 +1,10 @@
 # AI Influencer Builder
 
-Halaman tunggal untuk membangun identitas AI Influencer. Buat profil influencer berbasis AI: identitas, kepribadian, niche, audiens, gaya, dan tujuan — lalu dapatkan paket prompt siap pakai.
+Halaman tunggal untuk membangun identitas AI Influencer. Buat profil influencer berbasis AI: identitas, kepribadian, niche, audiens, gaya, dan tujuan — lalu dapatkan ringkasan identitas dan tiga paket prompt visual siap pakai untuk NanoBanana, Flux, Seedream, ChatGPT Image, dan Gemini Image.
+
+## Screenshot
+
+![AI Influencer Builder](screenshot.png)
 
 ## Cara pakai
 
