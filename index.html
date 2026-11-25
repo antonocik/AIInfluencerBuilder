@@ -50,6 +50,42 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
   .field-error{color:var(--danger);font-size:12.5px;margin-top:6px;}
   .required-mark{color:var(--danger);font-weight:700;}
 
+  /* ---------- Section navigation ---------- */
+  .step-bar{
+    position:sticky;top:71px;z-index:30;
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+    padding:10px 24px;
+    background:rgba(243,246,252,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .step-pill{
+    width:34px;height:34px;border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface);color:var(--ink-muted);
+    font-size:12.5px;font-weight:600;
+    transition:all .15s ease;
+  }
+  .step-pill:hover{border-color:var(--primary);color:var(--primary-dark);}
+  .step-pill.active{
+    background:var(--primary);border-color:var(--primary);color:#fff;
+    box-shadow:0 4px 12px rgba(59,130,246,0.3);
+  }
+  .mobile-nav{display:none;}
+  .form-section{scroll-margin-top:120px;}
+  @media (max-width:600px){
+    .step-bar{display:none;}
+    body{padding-bottom:72px;}
+    .mobile-nav{
+      display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;
+      align-items:center;justify-content:space-between;gap:12px;
+      padding:10px 16px;
+      background:var(--surface);border-top:1px solid var(--border);
+      box-shadow:0 -6px 20px rgba(15,23,42,0.12);
+    }
+    #sectionCount{font-size:13px;font-weight:600;color:var(--ink-muted);}
+  }
+
   a,button,input,select,textarea{font-family:inherit;}
   button{cursor:pointer;}
   input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{
@@ -887,6 +923,8 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
     <div class="header-status"><span class="dot"></span>Berjalan di browser Anda, tanpa server</div>
   </div>
 </header>
+
+<nav class="step-bar" id="stepBar" aria-label="Navigasi bagian"></nav>
 
 <main class="layout">
   <section class="form-column">
@@ -2162,6 +2200,88 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     return {ok: !firstInvalid, firstInvalid: firstInvalid};
   };
 
+  /* ============ AIB: section navigation ============ */
+  AIB.visibleSections = function(){
+    return Array.prototype.slice.call(document.querySelectorAll('.form-section')).filter(function(s){
+      return !s.classList.contains('hidden');
+    });
+  };
+
+  AIB.initSectionNav = function(){
+    var stepBar = document.getElementById('stepBar');
+    var prevBtn = document.getElementById('prevSectionBtn');
+    var nextBtn = document.getElementById('nextSectionBtn');
+    var countEl = document.getElementById('sectionCount');
+    var activeId = null;
+    var activeIndex = 0;
+
+    function setActive(idx){
+      var sections = AIB.visibleSections();
+      if(idx < 0) idx = 0;
+      if(idx > sections.length - 1) idx = sections.length - 1;
+      activeIndex = idx;
+      activeId = sections[idx] ? sections[idx].id : null;
+      var pills = stepBar.querySelectorAll('.step-pill');
+      for(var i=0;i<pills.length;i++){
+        pills[i].classList.toggle('active', pills[i].getAttribute('data-target') === activeId);
+      }
+      if(countEl) countEl.textContent = 'Bagian ' + (idx+1) + ' dari ' + sections.length;
+    }
+
+    function build(){
+      var sections = AIB.visibleSections();
+      stepBar.innerHTML = '';
+      sections.forEach(function(sec, i){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'step-pill';
+        b.setAttribute('data-target', sec.id);
+        b.textContent = ('0' + (i+1)).slice(-2);
+        b.addEventListener('click', function(){
+          var list = AIB.visibleSections();
+          setActive(list.indexOf(sec));
+          sec.scrollIntoView({behavior:'auto', block:'start'});
+        });
+        stepBar.appendChild(b);
+      });
+      var idx = -1;
+      if(activeId){
+        idx = sections.map(function(s){ return s.id; }).indexOf(activeId);
+      }
+      setActive(idx >= 0 ? idx : 0);
+    }
+
+    function goto(idx){
+      var sections = AIB.visibleSections();
+      if(idx < 0 || idx > sections.length - 1) return;
+      setActive(idx);
+      sections[idx].scrollIntoView({behavior:'auto', block:'start'});
+    }
+
+    function syncActive(){
+      var sections = AIB.visibleSections();
+      var probe = window.innerHeight * 0.4;
+      var idx = 0;
+      for(var i=0;i<sections.length;i++){
+        var r = sections[i].getBoundingClientRect();
+        if(r.top <= probe && r.bottom > probe) idx = i;
+      }
+      setActive(idx);
+    }
+
+    var observer = new IntersectionObserver(syncActive, {rootMargin:'-40% 0px -55% 0px'});
+    Array.prototype.forEach.call(document.querySelectorAll('.form-section'), function(sec){
+      observer.observe(sec);
+    });
+
+    prevBtn.addEventListener('click', function(){ goto(activeIndex - 1); });
+    nextBtn.addEventListener('click', function(){ goto(activeIndex + 1); });
+    document.getElementById('charTypeSelect').addEventListener('change', build);
+
+    build();
+    syncActive();
+  };
+
   /* ============ BOOTSTRAP ============ */
   function init(){
     initFields();
@@ -2174,6 +2294,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     document.getElementById('builderForm').addEventListener('input', AIB.scheduleSave);
     document.getElementById('builderForm').addEventListener('change', AIB.scheduleSave);
     document.getElementById('resetBtn').addEventListener('click', AIB.resetForm);
+    AIB.initSectionNav();
 
     document.getElementById('generateBtn').addEventListener('click', function(){
       var v = AIB.validate();
@@ -2203,6 +2324,12 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
   document.addEventListener('DOMContentLoaded', init);
 })();
 </script>
+
+<div class="mobile-nav" id="mobileNav">
+  <button type="button" class="btn-secondary" id="prevSectionBtn">Sebelumnya</button>
+  <span id="sectionCount">Bagian 1 dari 10</span>
+  <button type="button" class="btn-secondary" id="nextSectionBtn">Berikutnya</button>
+</div>
 
 
 <qb-toolbar contenteditable="false" id="qb-toolbar-container" style="display: none;"><qb-div class="qb-toolbar__wrapper" style="left: 1089px; position: absolute !important; top: 634px !important; bottom: auto !important; z-index: auto; opacity: 1 !important; pointer-events: all !important;"><div style="all: initial !important;"><qb-div style="all: initial !important;"><template shadowrootmode="open"><style>[contenteditable]:focus {

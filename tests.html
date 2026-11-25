@@ -218,6 +218,43 @@
     assertEq(v.firstInvalid, null, 'firstInvalid should be null');
   });
 
+  // --- Task 4: section navigation ---
+  t('nav: pill count equals visible sections', function (win) {
+    setValue(win, 'charTypeSelect', 'Manusia');
+    var pills = win.document.querySelectorAll('#stepBar .step-pill');
+    assertEq(pills.length, 10, 'pill count');
+    assertEq(win.document.getElementById('sectionCount').textContent, 'Bagian 1 dari 10', 'count text');
+  });
+
+  t('nav: hidden section 06 skipped, count is 9', function (win) {
+    setValue(win, 'charTypeSelect', 'Robot / Mekanik');
+    var pills = win.document.querySelectorAll('#stepBar .step-pill');
+    assertEq(pills.length, 9, 'pill count after non-human');
+    assert(!win.document.querySelector('#stepBar .step-pill[data-target="section6"]'), 'section6 pill must not exist');
+    var count = win.document.getElementById('sectionCount').textContent;
+    assert(count.indexOf('dari 9') !== -1, 'count text: ' + count);
+  });
+
+  t('nav: click pill scrolls and activates', async function (win) {
+    win.document.documentElement.style.scrollBehavior = 'auto';
+    var pill = win.document.querySelector('#stepBar .step-pill[data-target="section3"]');
+    assert(pill, 'section3 pill missing');
+    pill.click();
+    await sleep(300);
+    assert(pill.classList.contains('active'), 'pill not active after click');
+    var top = win.document.getElementById('section3').getBoundingClientRect().top;
+    assert(top >= -5 && top <= 130, 'section3 top = ' + top);
+  });
+
+  t('nav: prev/next move between sections', async function (win) {
+    var before = win.document.querySelector('#stepBar .step-pill.active').getAttribute('data-target');
+    win.document.getElementById('nextSectionBtn').click();
+    await sleep(100);
+    var after = win.document.querySelector('#stepBar .step-pill.active').getAttribute('data-target');
+    assert(after !== before, 'active target unchanged: ' + before);
+    assertEq(win.document.getElementById('sectionCount').textContent, 'Bagian 4 dari 9', 'count after next');
+  });
+
   run();
 })();
 </script>
