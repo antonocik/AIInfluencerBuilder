@@ -111,6 +111,68 @@
     assert(win.document.querySelector('#generateBtn'), '#generateBtn missing');
   });
 
+  // --- Task 2: autosave + reset ---
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function setValue(win, id, value) {
+    var el = win.document.getElementById(id);
+    el.value = value;
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+    el.dispatchEvent(new win.Event('change', { bubbles: true }));
+  }
+
+  t('autosave: input writes aib_state_v1 after debounce', async function (win) {
+    setValue(win, 'charName', 'Aria Sterling');
+    await sleep(700);
+    var raw = win.localStorage.getItem('aib_state_v1');
+    assert(raw, 'aib_state_v1 missing');
+    assert(raw.indexOf('Aria Sterling') !== -1, 'value not found in state: ' + raw);
+  });
+
+  t('autosave: reload restores state', async function (win) {
+    setValue(win, 'charName', 'Beta Ray');
+    await sleep(700);
+    await withFreshPage(function (w2) {
+      assertEq(w2.document.getElementById('charName').value, 'Beta Ray', 'input restored');
+      assertEq(w2.document.getElementById('previewName').textContent, 'Beta Ray', 'preview name updated');
+    });
+  });
+
+  t('reset: clears form, state key, and outputs', async function (win) {
+    setValue(win, 'charName', 'Gamma Delta');
+    win.AIB.saveState();
+    win.confirm = function () { return true; };
+    win.document.getElementById('resetBtn').click();
+    assertEq(win.document.getElementById('charName').value, '', 'input cleared');
+    assert(win.localStorage.getItem('aib_state_v1') === null, 'state key removed');
+    var pres = win.document.querySelectorAll('.output-card pre');
+    assert(pres.length > 0, 'no output pre elements found');
+    for (var i = 0; i < pres.length; i++) {
+      assertEq(pres[i].textContent.trim(), '', 'pre not cleared: #' + (pres[i].id || i));
+    }
+  });
+
+  t('reset: keeps saved profiles', async function (win) {
+    win.localStorage.setItem('aib_profiles_v1', JSON.stringify([{ id: 'p1', name: 'A', savedAt: 1, state: {} }]));
+    win.confirm = function () { return true; };
+    win.document.getElementById('resetBtn').click();
+    var p = win.localStorage.getItem('aib_profiles_v1');
+    assert(p && p.indexOf('p1') !== -1, 'profiles must survive reset, got: ' + p);
+  });
+
+  t('autosave: storage failure degrades, no throw', async function (win) {
+    win.Storage.prototype.setItem = function () { throw new Error('quota exceeded'); };
+    var threw = null;
+    try {
+      setValue(win, 'charName', 'Epsilon Zeta');
+      await sleep(700);
+    } catch (e) { threw = e; }
+    assert(!threw, 'exception escaped: ' + (threw && threw.message));
+    var toast = win.document.getElementById('toast');
+    assert(toast.classList.contains('show'), 'toast not visible');
+    assert(toast.textContent.indexOf('Autosave') !== -1, 'unexpected toast text: ' + toast.textContent);
+    assert(win.AIB._storageOff === true, 'AIB._storageOff not set');
+  });
+
   run();
 })();
 </script>
