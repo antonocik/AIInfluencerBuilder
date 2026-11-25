@@ -360,6 +360,78 @@
     assertEq(win.localStorage.getItem('aib_current_profile'), null, 'current profile pointer cleared');
   });
 
+  // --- Review pass: security + robustness ---
+  t('security: imported profile state cannot inject HTML', async function (win) {
+    var payload = {
+      charName: '<img src=x onerror="window.__pwned=1">',
+      charTypeSelect: 'Lainnya',
+      charTypeOther: '<b id="xss-b">bad</b>',
+      nicheSelect: 'Lainnya',
+      nicheOther: '<i id="xss-i">bad</i>',
+      charProfession: 'Tester'
+    };
+    win.AIB.profiles.importJSON(JSON.stringify([
+      { id: 'xss-1', name: 'XSS', savedAt: 1, state: payload }
+    ]));
+    win.AIB.profiles.load('xss-1');
+    assert(!win.document.getElementById('xss-b'), 'injected <b> element in preview');
+    assert(!win.document.getElementById('xss-i'), 'injected <i> element in preview');
+    var facts = win.document.getElementById('previewFacts');
+    assert(facts.textContent.indexOf('<b id="xss-b">') !== -1, 'charTypeOther text lost from facts');
+    win.document.getElementById('generateBtn').click();
+    await sleep(3200); // runProgress ~2420ms
+    assert(!win.document.getElementById('xss-b'), 'injected <b> element in summary');
+    assert(!win.document.querySelector('#summaryBody img'), 'injected <img> in summary');
+    assert(win.__pwned === undefined, 'onerror handler executed');
+    var summary = win.document.getElementById('summaryBody');
+    assert(summary.textContent.indexOf('<img src=x') !== -1, 'charName text lost from summary');
+    win.AIB.profiles.remove('xss-1');
+  });
+
+  t('autosave: corrupt profiles key does not kill autosave', async function (win) {
+    win.localStorage.setItem('aib_profiles_v1', '{corrupt json');
+    win.localStorage.setItem('aib_current_profile', 'px');
+    try {
+      setValue(win, 'charName', 'Delta Sierra');
+      await sleep(700);
+      assert(win.AIB._storageOff !== true, 'autosave disabled by corrupt profiles key');
+      var raw = win.localStorage.getItem('aib_state_v1');
+      assert(raw && raw.indexOf('Delta Sierra') !== -1, 'working state not saved: ' + raw);
+    } finally {
+      win.localStorage.removeItem('aib_profiles_v1');
+      win.localStorage.removeItem('aib_current_profile');
+    }
+  });
+
+  t('reset: clears active profile pointer, keeps profiles', function (win) {
+    var p = win.AIB.profiles.saveNew('Reset Target');
+    assert(p, 'saveNew returned nothing');
+    assertEq(win.localStorage.getItem('aib_current_profile'), p.id, 'pointer not set after saveNew');
+    win.confirm = function () { return true; };
+    win.document.getElementById('resetBtn').click();
+    assertEq(win.localStorage.getItem('aib_current_profile'), null, 'pointer survives reset');
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assert(list.some(function (x) { return x.id === p.id; }), 'profile deleted by reset');
+  });
+
+  t('profile: failed write toasts error, not success', function (win) {
+    var orig = win.Storage.prototype.setItem;
+    win.Storage.prototype.setItem = function () { throw new Error('quota exceeded'); };
+    var before = JSON.parse(win.localStorage.getItem('aib_profiles_v1') || '[]').length;
+    try {
+      win.prompt = function () { return 'Gagal Save'; };
+      win.document.getElementById('saveProfileBtn').click();
+      var toast = win.document.getElementById('toast');
+      assert(toast.classList.contains('error'), 'toast not marked error: ' + toast.textContent);
+      assert(toast.textContent.indexOf('disimpan') === -1, 'false success toast: ' + toast.textContent);
+      var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1') || '[]').length;
+      assertEq(after, before, 'profile count changed despite failed write');
+    } finally {
+      win.Storage.prototype.setItem = orig;
+      win.AIB._storageOff = false;
+    }
+  });
+
   run();
 })();
 </script>

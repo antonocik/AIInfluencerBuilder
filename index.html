@@ -1633,6 +1633,11 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     return el ? el.value : '';
   }
   function fb(v, d){ return (v && String(v).length) ? v : d; }
+  function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
 
   function selectOrOther(selectId, otherId){
     var raw = getVal(selectId);
@@ -1722,7 +1727,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     var chips = personality.slice(0,3);
     if(niche) chips.push(niche);
     chipsWrap.innerHTML = chips.length
-      ? chips.map(function(c){ return '<span class="preview-chip">'+c+'</span>'; }).join('')
+      ? chips.map(function(c){ return '<span class="preview-chip">'+esc(c)+'</span>'; }).join('')
       : '<span class="preview-chip muted">Belum ada tag</span>';
 
     var facts = document.getElementById('previewFacts');
@@ -1733,7 +1738,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       ['Platform', getCheckedValues('platform').join(', ') || '—']
     ];
     facts.innerHTML = pairs.map(function(p){
-      return '<div class="fact"><dt>'+p[0]+'</dt><dd>'+p[1]+'</dd></div>';
+      return '<div class="fact"><dt>'+esc(p[0])+'</dt><dd>'+esc(p[1])+'</dd></div>';
     }).join('');
   }
 
@@ -1753,7 +1758,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       ['Tujuan', fb(data.goal,'—')]
     ];
     return items.map(function(it){
-      return '<div class="summary-item"><dt>'+it[0]+'</dt><dd>'+it[1]+'</dd></div>';
+      return '<div class="summary-item"><dt>'+esc(it[0])+'</dt><dd>'+esc(it[1])+'</dd></div>';
     }).join('');
   }
 
@@ -2198,23 +2203,29 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
   AIB.saveState = function(){
     if(AIB._storageOff) return;
     clearTimeout(AIB._saveTimer);
+    var state;
     try{
-      var state = aibSerialize(document.getElementById('builderForm'));
+      state = aibSerialize(document.getElementById('builderForm'));
       localStorage.setItem('aib_state_v1', JSON.stringify(state));
-      // Profile auto-update: flush edits into the active profile on the same path.
-      var cur = localStorage.getItem('aib_current_profile');
-      if(cur){
-        var list = JSON.parse(localStorage.getItem('aib_profiles_v1') || '[]');
-        for(var i=0;i<list.length;i++){
-          if(list[i].id === cur){ list[i].state = state; list[i].savedAt = Date.now(); break; }
-        }
-        localStorage.setItem('aib_profiles_v1', JSON.stringify(list));
-      }
     }catch(e){
       AIB._storageOff = true;
       var pb = document.getElementById('profileBar');
       if(pb) pb.classList.add('hidden');
       showToast('Autosave tidak tersedia di browser ini', true);
+      return;
+    }
+    // Profile auto-update: flush edits into the active profile on the same path.
+    // A corrupt aib_profiles_v1 must not disable autosave — _read() swallows it.
+    var cur = null;
+    try{ cur = localStorage.getItem('aib_current_profile'); }catch(e){ return; }
+    if(!cur) return;
+    var list = AIB.profiles._read();
+    var changed = false;
+    for(var i=0;i<list.length;i++){
+      if(list[i].id === cur){ list[i].state = state; list[i].savedAt = Date.now(); changed = true; break; }
+    }
+    if(changed){
+      try{ localStorage.setItem('aib_profiles_v1', JSON.stringify(list)); }catch(e){}
     }
   };
 
@@ -2245,8 +2256,8 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       catch(e){ return []; }
     },
     _write: function(list){
-      try{ localStorage.setItem('aib_profiles_v1', JSON.stringify(list)); }
-      catch(e){ AIB._storageOff = true; }
+      try{ localStorage.setItem('aib_profiles_v1', JSON.stringify(list)); return true; }
+      catch(e){ AIB._storageOff = true; return false; }
     },
     _getPointer: function(){
       try{ return localStorage.getItem('aib_current_profile'); }catch(e){ return null; }
@@ -2267,7 +2278,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       };
       var list = this._read();
       list.push(p);
-      this._write(list);
+      if(!this._write(list)) return null;
       this._setPointer(p.id);
       this._renderSelect();
       return p;
@@ -2286,9 +2297,10 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     },
     remove: function(id){
       var list = this._read().filter(function(p){ return p.id !== id; });
-      this._write(list);
+      if(!this._write(list)) return false;
       if(this._getPointer() === id) this._setPointer(null);
       this._renderSelect();
+      return true;
     },
     exportJSON: function(){ return JSON.stringify(this._read()); },
     importJSON: function(text){
@@ -2305,7 +2317,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
         }
         if(!found){ list.push(item); added++; }
       }
-      this._write(list);
+      if(!this._write(list)) throw new Error('Penyimpanan tidak tersedia');
       this._renderSelect();
       return {added: added, updated: updated};
     },
@@ -2341,6 +2353,8 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       else { el.value = el.defaultValue; }
     }
     try{ localStorage.removeItem('aib_state_v1'); }catch(e){}
+    // Never let the next autosave flush the cleared form into the active profile.
+    if(AIB.profiles){ AIB.profiles._setPointer(null); AIB.profiles._renderSelect(); }
     var pres = document.querySelectorAll('.output-card pre');
     for(var i=0;i<pres.length;i++){ pres[i].textContent = ''; }
     var sb = document.getElementById('summaryBody');
@@ -2519,7 +2533,8 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     document.getElementById('saveProfileBtn').addEventListener('click', function(){
       var name = prompt('Nama karakter:', document.getElementById('charName').value || '');
       if(!name || !name.trim()) return;
-      AIB.profiles.saveNew(name.trim());
+      var p = AIB.profiles.saveNew(name.trim());
+      if(!p){ showToast('Gagal menyimpan: penyimpanan tidak tersedia', true); return; }
       showToast('Karakter "' + name.trim() + '" disimpan');
     });
     document.getElementById('deleteProfileBtn').addEventListener('click', function(){
@@ -2527,7 +2542,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       var id = sel.value || AIB.profiles._getPointer();
       if(!id){ showToast('Belum ada karakter yang dipilih', true); return; }
       if(!confirm('Hapus karakter ini? Profil lain tidak ikut terhapus.')) return;
-      AIB.profiles.remove(id);
+      if(!AIB.profiles.remove(id)){ showToast('Gagal menghapus: penyimpanan tidak tersedia', true); return; }
       showToast('Karakter dihapus');
     });
     document.getElementById('exportProfileBtn').addEventListener('click', function(){
