@@ -47,6 +47,91 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
   p{margin:0;color:var(--ink-muted);}
   .hidden{display:none !important;}
 
+  .field-error{color:var(--danger);font-size:12.5px;margin-top:6px;}
+  .required-mark{color:var(--danger);font-weight:700;}
+
+  /* ---------- Profile bar ---------- */
+  .profile-bar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+    padding:12px 14px;margin-bottom:18px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);box-shadow:var(--shadow);
+  }
+  .profile-bar label{font-size:12.5px;font-weight:600;color:var(--ink-muted);white-space:nowrap;}
+  .profile-bar select{
+    flex:1 1 160px;min-width:140px;
+    padding:9px 12px;font-size:13.5px;
+    border:1px solid var(--border);border-radius:var(--radius-sm);
+    background:var(--bg);color:var(--ink);
+  }
+  .profile-actions{display:flex;flex-wrap:wrap;gap:8px;}
+  .profile-actions .btn-secondary{padding:9px 13px;font-size:12.5px;}
+
+  /* ---------- Header right + theme toggle ---------- */
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .theme-toggle{
+    width:36px;height:36px;border-radius:10px;flex:0 0 auto;
+    border:1px solid var(--border);background:var(--surface);
+    color:var(--ink-muted);display:flex;align-items:center;justify-content:center;
+    transition:all .15s ease;
+  }
+  .theme-toggle:hover{border-color:var(--primary);color:var(--primary-dark);}
+  .theme-toggle svg{width:17px;height:17px;}
+  .theme-toggle .icon-sun{display:none;}
+  [data-theme=dark] .theme-toggle .icon-sun{display:block;}
+  [data-theme=dark] .theme-toggle .icon-moon{display:none;}
+
+  /* ---------- Dark mode ---------- */
+  [data-theme=dark]{
+    --bg:#0B1220;
+    --surface:#111A2E;
+    --surface-alt:#0E1626;
+    --ink:#E2E8F0;
+    --ink-muted:#94A3B8;
+    --ink-faint:#64748B;
+    --border:#1E2A44;
+    --shadow:0 4px 24px rgba(0,0,0,0.45);
+    --shadow-hover:0 10px 32px rgba(0,0,0,0.5);
+  }
+  [data-theme=dark] .site-header{background:rgba(11,18,32,0.85);}
+  [data-theme=dark] .step-bar{background:rgba(11,18,32,0.92);}
+
+  /* ---------- Section navigation ---------- */
+  .step-bar{
+    position:sticky;top:71px;z-index:30;
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+    padding:10px 24px;
+    background:rgba(243,246,252,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .step-pill{
+    width:34px;height:34px;border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface);color:var(--ink-muted);
+    font-size:12.5px;font-weight:600;
+    transition:all .15s ease;
+  }
+  .step-pill:hover{border-color:var(--primary);color:var(--primary-dark);}
+  .step-pill.active{
+    background:var(--primary);border-color:var(--primary);color:#fff;
+    box-shadow:0 4px 12px rgba(59,130,246,0.3);
+  }
+  .mobile-nav{display:none;}
+  .form-section{scroll-margin-top:120px;}
+  @media (max-width:600px){
+    .step-bar{display:none;}
+    body{padding-bottom:72px;}
+    .mobile-nav{
+      display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;
+      align-items:center;justify-content:space-between;gap:12px;
+      padding:10px 16px;
+      background:var(--surface);border-top:1px solid var(--border);
+      box-shadow:0 -6px 20px rgba(15,23,42,0.12);
+    }
+    #sectionCount{font-size:13px;font-weight:600;color:var(--ink-muted);}
+  }
+
   a,button,input,select,textarea{font-family:inherit;}
   button{cursor:pointer;}
   input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{
@@ -193,6 +278,9 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
   .chip:hover span{border-color:#B9CBEF;}
 
   /* ---------- Generate button ---------- */
+  .generate-row{display:flex;gap:12px;align-items:stretch;margin-top:6px;}
+  .generate-row .generate-btn{margin-top:0;flex:1;}
+  .generate-row .btn-secondary{flex:0 0 auto;align-self:stretch;}
   .generate-btn{
     margin-top:6px;
     width:100%;
@@ -878,9 +966,17 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
         <span class="brand-tag">Character Identity &amp; Prompt Generator</span>
       </div>
     </div>
-    <div class="header-status"><span class="dot"></span>Berjalan di browser Anda, tanpa server</div>
+    <div class="header-right">
+      <div class="header-status"><span class="dot"></span>Berjalan di browser Anda, tanpa server</div>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Ganti mode gelap">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4l1.4-1.4"></path></svg>
+      </button>
+    </div>
   </div>
 </header>
+
+<nav class="step-bar" id="stepBar" aria-label="Navigasi bagian"></nav>
 
 <main class="layout">
   <section class="form-column">
@@ -888,6 +984,18 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
       <span class="eyebrow">Character Builder</span>
       <h1>Bangun identitas AI Influencer Anda</h1>
       <p>Isi data karakter di bawah ini. Sistem akan menyusun ringkasan identitas, profil kepribadian, dan tiga paket prompt visual siap pakai untuk NanoBanana, Flux, Seedream, ChatGPT Image, Gemini Image, dan generator lainnya.</p>
+    </div>
+
+    <div class="profile-bar" id="profileBar">
+      <label for="profileSelect">Karakter tersimpan</label>
+      <select id="profileSelect"><option value="">Karakter baru</option></select>
+      <div class="profile-actions">
+        <button type="button" class="btn-secondary" id="saveProfileBtn">Simpan Karakter</button>
+        <button type="button" class="btn-secondary" id="deleteProfileBtn">Hapus</button>
+        <button type="button" class="btn-secondary" id="exportProfileBtn">Ekspor</button>
+        <button type="button" class="btn-secondary" id="importProfileBtn">Impor</button>
+        <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+      </div>
     </div>
 
     <div class="builder-form" id="builderForm">
@@ -899,16 +1007,18 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
         </div>
         <div class="field-grid">
           <div class="field field-span-2">
-            <label for="charTypeSelect">Jenis Karakter</label>
-            <select id="charTypeSelect"><option value="" disabled="" selected="">Pilih jenis karakter</option><option value="Manusia">Manusia</option><option value="Binatang / Hewan">Binatang / Hewan</option><option value="Karakter Kartun">Karakter Kartun</option><option value="Dinosaurus">Dinosaurus</option><option value="Fantasi / Mitos">Fantasi / Mitos</option><option value="Robot / Mekanik">Robot / Mekanik</option><option value="Monster / Makhluk">Monster / Makhluk</option><option value="Lainnya">Lainnya</option></select>
+            <label for="charTypeSelect">Jenis Karakter <span class="required-mark">*</span></label>
+            <select id="charTypeSelect" aria-required="true"><option value="" disabled="" selected="">Pilih jenis karakter</option><option value="Manusia">Manusia</option><option value="Binatang / Hewan">Binatang / Hewan</option><option value="Karakter Kartun">Karakter Kartun</option><option value="Dinosaurus">Dinosaurus</option><option value="Fantasi / Mitos">Fantasi / Mitos</option><option value="Robot / Mekanik">Robot / Mekanik</option><option value="Monster / Makhluk">Monster / Makhluk</option><option value="Lainnya">Lainnya</option></select>
+            <p class="field-error hidden" id="charTypeError"></p>
           </div>
           <div class="field other-wrap hidden" id="charTypeSelectOtherWrap">
             <label for="charTypeOther">Sebutkan jenis karakter lainnya</label>
             <input type="text" id="charTypeOther" placeholder="Contoh: Dragon, Mecha, Alien, dll">
           </div>
           <div class="field">
-            <label for="charName">Nama Karakter</label>
-            <input type="text" id="charName" placeholder="Contoh: Aria Sterling">
+            <label for="charName">Nama Karakter <span class="required-mark">*</span></label>
+            <input type="text" id="charName" aria-required="true" placeholder="Contoh: Aria Sterling">
+            <p class="field-error hidden" id="charNameError"></p>
           </div>
           <div class="field">
             <label for="charAge">Umur</label>
@@ -962,7 +1072,7 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
           <span class="section-num">03</span>
           <div><h2>Niche Konten</h2><p>Arah utama konten yang dibuat.</p></div>
         </div>
-        <div class="field"><select id="nicheSelect"><option value="" disabled="" selected="">Pilih niche konten</option><option value="Fashion">Fashion</option><option value="Beauty">Beauty</option><option value="Lifestyle">Lifestyle</option><option value="Travel">Travel</option><option value="Fitness">Fitness</option><option value="Teknologi">Teknologi</option><option value="Kuliner">Kuliner</option><option value="Gaming">Gaming</option><option value="Edukasi">Edukasi</option><option value="Luxury">Luxury</option><option value="Lainnya">Lainnya</option></select></div>
+        <div class="field"><label for="nicheSelect">Niche Konten <span class="required-mark">*</span></label><select id="nicheSelect" aria-required="true"><option value="" disabled="" selected="">Pilih niche konten</option><option value="Fashion">Fashion</option><option value="Beauty">Beauty</option><option value="Lifestyle">Lifestyle</option><option value="Travel">Travel</option><option value="Fitness">Fitness</option><option value="Teknologi">Teknologi</option><option value="Kuliner">Kuliner</option><option value="Gaming">Gaming</option><option value="Edukasi">Edukasi</option><option value="Luxury">Luxury</option><option value="Lainnya">Lainnya</option></select><p class="field-error hidden" id="nicheError"></p></div>
         <div class="field other-wrap hidden" id="nicheSelectOtherWrap">
           <label for="nicheOther">Sebutkan niche lainnya</label>
           <input type="text" id="nicheOther" placeholder="Tulis niche Anda">
@@ -1086,10 +1196,13 @@ body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relati
 
     </div>
 
-    <button type="button" class="generate-btn" id="generateBtn">
-      <span>Generate AI Influencer</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 3z"></path></svg>
-    </button>
+    <div class="generate-row">
+      <button type="button" class="btn-secondary" id="resetBtn">Reset</button>
+      <button type="button" class="generate-btn" id="generateBtn">
+        <span>Generate AI Influencer</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 3z"></path></svg>
+      </button>
+    </div>
   </section>
 
   <aside class="preview-column">
@@ -1520,6 +1633,11 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     return el ? el.value : '';
   }
   function fb(v, d){ return (v && String(v).length) ? v : d; }
+  function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
 
   function selectOrOther(selectId, otherId){
     var raw = getVal(selectId);
@@ -1609,7 +1727,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     var chips = personality.slice(0,3);
     if(niche) chips.push(niche);
     chipsWrap.innerHTML = chips.length
-      ? chips.map(function(c){ return '<span class="preview-chip">'+c+'</span>'; }).join('')
+      ? chips.map(function(c){ return '<span class="preview-chip">'+esc(c)+'</span>'; }).join('')
       : '<span class="preview-chip muted">Belum ada tag</span>';
 
     var facts = document.getElementById('previewFacts');
@@ -1620,7 +1738,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       ['Platform', getCheckedValues('platform').join(', ') || '—']
     ];
     facts.innerHTML = pairs.map(function(p){
-      return '<div class="fact"><dt>'+p[0]+'</dt><dd>'+p[1]+'</dd></div>';
+      return '<div class="fact"><dt>'+esc(p[0])+'</dt><dd>'+esc(p[1])+'</dd></div>';
     }).join('');
   }
 
@@ -1640,7 +1758,7 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
       ['Tujuan', fb(data.goal,'—')]
     ];
     return items.map(function(it){
-      return '<div class="summary-item"><dt>'+it[0]+'</dt><dd>'+it[1]+'</dd></div>';
+      return '<div class="summary-item"><dt>'+esc(it[0])+'</dt><dd>'+esc(it[1])+'</dd></div>';
     }).join('');
   }
 
@@ -2026,16 +2144,455 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
     toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
   }
 
+  /* ============ AIB: autosave + reset ============ */
+  var AIB = {
+    _storageOff: false,
+    _saveTimer: null
+  };
+  window.AIB = AIB;
+
+  function aibSerialize(form){
+    var state = {};
+    var els = form.querySelectorAll('input, select, textarea');
+    for(var i=0;i<els.length;i++){
+      var el = els[i];
+      if(el.type === 'submit' || el.type === 'button' || el.type === 'file') continue;
+      var key = el.id || el.name;
+      if(!key) continue;
+      if(el.type === 'radio'){
+        if(el.checked) state[key] = el.value;
+        else if(!(key in state)) state[key] = '';
+      } else if(el.type === 'checkbox'){
+        state[key] = !!el.checked;
+      } else {
+        state[key] = el.value;
+      }
+    }
+    return state;
+  }
+
+  AIB.getState = function(){
+    try{
+      var raw = localStorage.getItem('aib_state_v1');
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  };
+
+  AIB.setState = function(state){
+    if(!state) return;
+    var form = document.getElementById('builderForm');
+    var els = form.querySelectorAll('input, select, textarea');
+    var selects = [];
+    for(var i=0;i<els.length;i++){
+      var el = els[i];
+      if(el.type === 'submit' || el.type === 'button' || el.type === 'file') continue;
+      var key = el.id || el.name;
+      if(!key || !(key in state)) continue;
+      var v = state[key];
+      if(el.type === 'radio'){ el.checked = (el.value === v); }
+      else if(el.type === 'checkbox'){ el.checked = !!v; }
+      else {
+        el.value = v;
+        if(el.tagName === 'SELECT') selects.push(el);
+      }
+    }
+    // Re-sync "Lainnya" toggles, character-type UI, and live preview.
+    selects.forEach(function(sel){ sel.dispatchEvent(new Event('change', {bubbles:true})); });
+  };
+
+  AIB.saveState = function(){
+    if(AIB._storageOff) return;
+    clearTimeout(AIB._saveTimer);
+    var state;
+    try{
+      state = aibSerialize(document.getElementById('builderForm'));
+      localStorage.setItem('aib_state_v1', JSON.stringify(state));
+    }catch(e){
+      AIB._storageOff = true;
+      var pb = document.getElementById('profileBar');
+      if(pb) pb.classList.add('hidden');
+      showToast('Autosave tidak tersedia di browser ini', true);
+      return;
+    }
+    // Profile auto-update: flush edits into the active profile on the same path.
+    // A corrupt aib_profiles_v1 must not disable autosave — _read() swallows it.
+    var cur = null;
+    try{ cur = localStorage.getItem('aib_current_profile'); }catch(e){ return; }
+    if(!cur) return;
+    var list = AIB.profiles._read();
+    var changed = false;
+    for(var i=0;i<list.length;i++){
+      if(list[i].id === cur){ list[i].state = state; list[i].savedAt = Date.now(); changed = true; break; }
+    }
+    if(changed){
+      try{ localStorage.setItem('aib_profiles_v1', JSON.stringify(list)); }catch(e){}
+    }
+  };
+
+  AIB.scheduleSave = function(){
+    if(AIB._storageOff) return;
+    clearTimeout(AIB._saveTimer);
+    AIB._saveTimer = setTimeout(AIB.saveState, 400);
+  };
+
+  AIB.restore = function(){
+    var state = AIB.getState();
+    if(state){ AIB.setState(state); return; }
+    // No working state: fall back to the active profile snapshot.
+    var cur = null;
+    try{ cur = localStorage.getItem('aib_current_profile'); }catch(e){}
+    if(cur && AIB.profiles){
+      var list = AIB.profiles._read();
+      for(var i=0;i<list.length;i++){
+        if(list[i].id === cur){ AIB.setState(list[i].state || {}); break; }
+      }
+    }
+  };
+
+  /* ============ AIB: multi-character profiles ============ */
+  AIB.profiles = {
+    _read: function(){
+      try{ return JSON.parse(localStorage.getItem('aib_profiles_v1')) || []; }
+      catch(e){ return []; }
+    },
+    _write: function(list){
+      try{ localStorage.setItem('aib_profiles_v1', JSON.stringify(list)); return true; }
+      catch(e){ AIB._storageOff = true; return false; }
+    },
+    _getPointer: function(){
+      try{ return localStorage.getItem('aib_current_profile'); }catch(e){ return null; }
+    },
+    _setPointer: function(id){
+      try{
+        if(id) localStorage.setItem('aib_current_profile', id);
+        else localStorage.removeItem('aib_current_profile');
+      }catch(e){}
+    },
+    list: function(){ return this._read(); },
+    saveNew: function(name){
+      var p = {
+        id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name: name,
+        savedAt: Date.now(),
+        state: aibSerialize(document.getElementById('builderForm'))
+      };
+      var list = this._read();
+      list.push(p);
+      if(!this._write(list)) return null;
+      this._setPointer(p.id);
+      this._renderSelect();
+      return p;
+    },
+    load: function(id){
+      if(!id) return;
+      var list = this._read();
+      var p = null;
+      for(var i=0;i<list.length;i++){ if(list[i].id === id){ p = list[i]; break; } }
+      if(!p) return;
+      AIB.saveState(); // flush current form into the outgoing profile first
+      this._setPointer(p.id);
+      AIB.setState(p.state || {});
+      this._renderSelect();
+      updateLivePreview();
+    },
+    remove: function(id){
+      var list = this._read().filter(function(p){ return p.id !== id; });
+      if(!this._write(list)) return false;
+      if(this._getPointer() === id) this._setPointer(null);
+      this._renderSelect();
+      return true;
+    },
+    exportJSON: function(){ return JSON.stringify(this._read()); },
+    importJSON: function(text){
+      var incoming = JSON.parse(text);
+      if(!Array.isArray(incoming)) throw new Error('Format profil tidak valid');
+      var list = this._read();
+      var added = 0, updated = 0;
+      for(var i=0;i<incoming.length;i++){
+        var item = incoming[i];
+        if(!item || !item.id) continue;
+        var found = false;
+        for(var j=0;j<list.length;j++){
+          if(list[j].id === item.id){ list[j] = item; updated++; found = true; break; }
+        }
+        if(!found){ list.push(item); added++; }
+      }
+      if(!this._write(list)) throw new Error('Penyimpanan tidak tersedia');
+      this._renderSelect();
+      return {added: added, updated: updated};
+    },
+    _renderSelect: function(){
+      var sel = document.getElementById('profileSelect');
+      if(!sel) return;
+      var list = this._read();
+      var cur = this._getPointer();
+      sel.innerHTML = '<option value="">Karakter baru</option>';
+      for(var i=0;i<list.length;i++){
+        var o = document.createElement('option');
+        o.value = list[i].id;
+        o.textContent = list[i].name;
+        sel.appendChild(o);
+      }
+      var valid = cur && list.some(function(p){ return p.id === cur; });
+      sel.value = valid ? cur : '';
+      if(!valid) this._setPointer(null);
+    }
+  };
+
+  AIB.resetForm = function(){
+    if(!confirm('Reset semua isi form?')) return;
+    clearTimeout(AIB._saveTimer);
+    // #builderForm is a div, not a <form>: clear controls to their defaults manually.
+    var els = document.getElementById('builderForm').querySelectorAll('input, select, textarea');
+    for(var i=0;i<els.length;i++){
+      var el = els[i];
+      if(el.type === 'checkbox' || el.type === 'radio'){ el.checked = el.defaultChecked; }
+      else if(el.tagName === 'SELECT'){
+        for(var o=0;o<el.options.length;o++){ el.options[o].selected = el.options[o].defaultSelected; }
+      }
+      else { el.value = el.defaultValue; }
+    }
+    try{ localStorage.removeItem('aib_state_v1'); }catch(e){}
+    // Never let the next autosave flush the cleared form into the active profile.
+    if(AIB.profiles){ AIB.profiles._setPointer(null); AIB.profiles._renderSelect(); }
+    var pres = document.querySelectorAll('.output-card pre');
+    for(var i=0;i<pres.length;i++){ pres[i].textContent = ''; }
+    var sb = document.getElementById('summaryBody');
+    if(sb) sb.innerHTML = '';
+    document.getElementById('resultsSection').classList.add('hidden');
+    var wraps = document.querySelectorAll('[id$="OtherWrap"]');
+    for(var j=0;j<wraps.length;j++){ wraps[j].classList.add('hidden'); }
+    updateCharacterTypeUI();
+    showToast('Form direset');
+  };
+
+  AIB.validate = function(){
+    var required = [
+      {id:'charName', err:'charNameError', msg:'Nama karakter wajib diisi.'},
+      {id:'charTypeSelect', err:'charTypeError', msg:'Pilih jenis karakter.'},
+      {id:'nicheSelect', err:'nicheError', msg:'Pilih niche konten.'}
+    ];
+    var firstInvalid = null;
+    required.forEach(function(r){
+      var el = document.getElementById(r.id);
+      var errEl = document.getElementById(r.err);
+      if(!el.value || !el.value.trim()){
+        if(!firstInvalid) firstInvalid = el;
+        errEl.textContent = r.msg;
+        errEl.classList.remove('hidden');
+      } else {
+        errEl.textContent = '';
+        errEl.classList.add('hidden');
+      }
+    });
+    return {ok: !firstInvalid, firstInvalid: firstInvalid};
+  };
+
+  /* ============ AIB: theme ============ */
+  var themeFrozen = false;
+  AIB.currentTheme = function(){
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  };
+  AIB.setTheme = function(theme, persist){
+    document.documentElement.setAttribute('data-theme', theme);
+    if(persist){
+      try{ localStorage.setItem('aib_theme', theme); }catch(e){}
+    }
+  };
+  AIB.toggleTheme = function(){
+    themeFrozen = true;
+    AIB.setTheme(AIB.currentTheme() === 'dark' ? 'light' : 'dark', true);
+  };
+  AIB.initTheme = function(){
+    var saved = null;
+    try{ saved = localStorage.getItem('aib_theme'); }catch(e){}
+    if(saved === 'dark' || saved === 'light'){
+      themeFrozen = true;
+      AIB.setTheme(saved, false);
+      return;
+    }
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    AIB.setTheme(mq.matches ? 'dark' : 'light', false);
+    var onChange = function(e){
+      if(themeFrozen) return;
+      AIB.setTheme(e.matches ? 'dark' : 'light', false);
+    };
+    if(mq.addEventListener) mq.addEventListener('change', onChange);
+    else if(mq.addListener) mq.addListener(onChange);
+  };
+
+  /* ============ AIB: section navigation ============ */
+  AIB.visibleSections = function(){
+    return Array.prototype.slice.call(document.querySelectorAll('.form-section')).filter(function(s){
+      return !s.classList.contains('hidden');
+    });
+  };
+
+  AIB.initSectionNav = function(){
+    var stepBar = document.getElementById('stepBar');
+    var prevBtn = document.getElementById('prevSectionBtn');
+    var nextBtn = document.getElementById('nextSectionBtn');
+    var countEl = document.getElementById('sectionCount');
+    var activeId = null;
+    var activeIndex = 0;
+
+    function setActive(idx){
+      var sections = AIB.visibleSections();
+      if(idx < 0) idx = 0;
+      if(idx > sections.length - 1) idx = sections.length - 1;
+      activeIndex = idx;
+      activeId = sections[idx] ? sections[idx].id : null;
+      var pills = stepBar.querySelectorAll('.step-pill');
+      for(var i=0;i<pills.length;i++){
+        pills[i].classList.toggle('active', pills[i].getAttribute('data-target') === activeId);
+      }
+      if(countEl) countEl.textContent = 'Bagian ' + (idx+1) + ' dari ' + sections.length;
+    }
+
+    function build(){
+      var sections = AIB.visibleSections();
+      stepBar.innerHTML = '';
+      sections.forEach(function(sec, i){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'step-pill';
+        b.setAttribute('data-target', sec.id);
+        b.textContent = ('0' + (i+1)).slice(-2);
+        b.addEventListener('click', function(){
+          var list = AIB.visibleSections();
+          setActive(list.indexOf(sec));
+          sec.scrollIntoView({behavior:'auto', block:'start'});
+        });
+        stepBar.appendChild(b);
+      });
+      var idx = -1;
+      if(activeId){
+        idx = sections.map(function(s){ return s.id; }).indexOf(activeId);
+      }
+      setActive(idx >= 0 ? idx : 0);
+    }
+
+    function goto(idx){
+      var sections = AIB.visibleSections();
+      if(idx < 0 || idx > sections.length - 1) return;
+      setActive(idx);
+      sections[idx].scrollIntoView({behavior:'auto', block:'start'});
+    }
+
+    function syncActive(){
+      var sections = AIB.visibleSections();
+      var probe = window.innerHeight * 0.4;
+      var idx = 0;
+      for(var i=0;i<sections.length;i++){
+        var r = sections[i].getBoundingClientRect();
+        if(r.top <= probe && r.bottom > probe) idx = i;
+      }
+      setActive(idx);
+    }
+
+    var observer = new IntersectionObserver(syncActive, {rootMargin:'-40% 0px -55% 0px'});
+    Array.prototype.forEach.call(document.querySelectorAll('.form-section'), function(sec){
+      observer.observe(sec);
+    });
+
+    prevBtn.addEventListener('click', function(){ goto(activeIndex - 1); });
+    nextBtn.addEventListener('click', function(){ goto(activeIndex + 1); });
+    document.getElementById('charTypeSelect').addEventListener('change', build);
+
+    build();
+    syncActive();
+  };
+
   /* ============ BOOTSTRAP ============ */
   function init(){
+    AIB.initTheme();
+    // Storage probe: no localStorage (private mode / file:// restrictions) -> degrade.
+    try{ localStorage.setItem('aib_probe', '1'); localStorage.removeItem('aib_probe'); }
+    catch(e){
+      AIB._storageOff = true;
+      document.getElementById('profileBar').classList.add('hidden');
+    }
     initFields();
     initOtherToggles();
     updateCharacterTypeUI();
     document.getElementById('builderForm').addEventListener('input', updateLivePreview);
     document.getElementById('builderForm').addEventListener('change', updateLivePreview);
+    AIB.restore();
     updateLivePreview();
+    document.getElementById('builderForm').addEventListener('input', AIB.scheduleSave);
+    document.getElementById('builderForm').addEventListener('change', AIB.scheduleSave);
+    document.getElementById('resetBtn').addEventListener('click', AIB.resetForm);
+    document.getElementById('themeToggle').addEventListener('click', AIB.toggleTheme);
+    AIB.initSectionNav();
 
-    document.getElementById('generateBtn').addEventListener('click', renderResults);
+    /* ---- profiles ---- */
+    AIB.profiles._renderSelect();
+    document.getElementById('profileSelect').addEventListener('change', function(){
+      if(this.value) AIB.profiles.load(this.value);
+    });
+    document.getElementById('saveProfileBtn').addEventListener('click', function(){
+      var name = prompt('Nama karakter:', document.getElementById('charName').value || '');
+      if(!name || !name.trim()) return;
+      var p = AIB.profiles.saveNew(name.trim());
+      if(!p){ showToast('Gagal menyimpan: penyimpanan tidak tersedia', true); return; }
+      showToast('Karakter "' + name.trim() + '" disimpan');
+    });
+    document.getElementById('deleteProfileBtn').addEventListener('click', function(){
+      var sel = document.getElementById('profileSelect');
+      var id = sel.value || AIB.profiles._getPointer();
+      if(!id){ showToast('Belum ada karakter yang dipilih', true); return; }
+      if(!confirm('Hapus karakter ini? Profil lain tidak ikut terhapus.')) return;
+      if(!AIB.profiles.remove(id)){ showToast('Gagal menghapus: penyimpanan tidak tersedia', true); return; }
+      showToast('Karakter dihapus');
+    });
+    document.getElementById('exportProfileBtn').addEventListener('click', function(){
+      var blob = new Blob([AIB.profiles.exportJSON()], {type: 'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'aib-profiles.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      showToast('Profil diekspor');
+    });
+    document.getElementById('importProfileBtn').addEventListener('click', function(){
+      document.getElementById('importFile').click();
+    });
+    document.getElementById('importFile').addEventListener('change', function(){
+      var file = this.files && this.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      var input = this;
+      reader.onload = function(){
+        try{
+          var r = AIB.profiles.importJSON(String(reader.result));
+          showToast(r.added + ' profil baru, ' + r.updated + ' diperbarui');
+        }catch(err){
+          showToast('Impor gagal: file tidak valid', true);
+        }
+        input.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', function(){
+      var v = AIB.validate();
+      if(!v.ok){
+        v.firstInvalid.focus();
+        showToast('Lengkapi field wajib dulu', true);
+        return;
+      }
+      renderResults();
+    });
+    [['charName','charNameError'],['charTypeSelect','charTypeError'],['nicheSelect','nicheError']].forEach(function(pair){
+      var el = document.getElementById(pair[0]);
+      var clear = function(){
+        var e = document.getElementById(pair[1]);
+        e.classList.add('hidden');
+        e.textContent = '';
+      };
+      el.addEventListener('input', clear);
+      el.addEventListener('change', clear);
+    });
     document.getElementById('copyAllBtn').addEventListener('click', copyAll);
     document.getElementById('downloadBtn').addEventListener('click', downloadTXT);
     initCopyButtons();
@@ -2045,6 +2602,12 @@ Style: orthographic character-turnaround reference style, high detail, clean lin
   document.addEventListener('DOMContentLoaded', init);
 })();
 </script>
+
+<div class="mobile-nav" id="mobileNav">
+  <button type="button" class="btn-secondary" id="prevSectionBtn">Sebelumnya</button>
+  <span id="sectionCount">Bagian 1 dari 10</span>
+  <button type="button" class="btn-secondary" id="nextSectionBtn">Berikutnya</button>
+</div>
 
 
 <qb-toolbar contenteditable="false" id="qb-toolbar-container" style="display: none;"><qb-div class="qb-toolbar__wrapper" style="left: 1089px; position: absolute !important; top: 634px !important; bottom: auto !important; z-index: auto; opacity: 1 !important; pointer-events: all !important;"><div style="all: initial !important;"><qb-div style="all: initial !important;"><template shadowrootmode="open"><style>[contenteditable]:focus {

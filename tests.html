@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>AI Influencer Builder — tests</title>
+<style>
+  body { font-family: monospace; margin: 16px; }
+  #results div { padding: 2px 0; }
+  #results .fail { color: #b91c1c; font-weight: bold; }
+  #results .pass { color: #15803d; }
+  #results .summary { margin-top: 8px; font-weight: bold; }
+  iframe { width: 100%; height: 640px; border: 1px solid #cbd5e1; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>AI Influencer Builder — tests</h1>
+<div id="results"></div>
+<iframe id="app" src="index.html"></iframe>
+<script>
+(function () {
+  'use strict';
+
+  var tests = [];
+  function t(name, fn) { tests.push({ name: name, fn: fn }); }
+  function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+  function assertEq(actual, expected, msg) {
+    if (actual !== expected) {
+      throw new Error((msg ? msg + ': ' : '') + 'expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+    }
+  }
+
+  var frame = document.getElementById('app');
+  var results = document.getElementById('results');
+
+  function waitReady(win) {
+    return new Promise(function (resolve, reject) {
+      var started = Date.now();
+      (function poll() {
+        try {
+          var doc = win.document;
+          if (doc && doc.readyState === 'complete' && doc.querySelector('#builderForm')) {
+            return resolve(win);
+          }
+        } catch (e) { /* frame navigating */ }
+        if (Date.now() - started > 15000) return reject(new Error('iframe not ready in 15s'));
+        setTimeout(poll, 50);
+      })();
+    });
+  }
+
+  function freshPage() {
+    return new Promise(function (resolve, reject) {
+      frame.onload = function () {
+        waitReady(frame.contentWindow).then(resolve, reject);
+      };
+      frame.src = 'index.html?fresh=' + Date.now();
+      setTimeout(function () {
+        if (frame.contentWindow && frame.contentWindow.document &&
+            frame.contentWindow.document.readyState === 'complete' &&
+            frame.contentWindow.document.querySelector('#builderForm')) {
+          resolve(frame.contentWindow);
+        }
+      }, 15000);
+    });
+  }
+
+  function withFreshPage(fn) {
+    return freshPage().then(function (win) { return fn(win); });
+  }
+
+  function line(text, cls) {
+    var d = document.createElement('div');
+    d.textContent = text;
+    if (cls) d.className = cls;
+    results.appendChild(d);
+    document.title = text;
+    return d;
+  }
+
+  function run() {
+    var pass = 0, fail = 0;
+    return waitReady(frame.contentWindow)
+      .then(function (win) {
+        var chain = Promise.resolve();
+        tests.forEach(function (test) {
+          chain = chain.then(function () {
+            return Promise.resolve()
+              .then(function () { return test.fn(win); })
+              .then(function () { line('PASS ' + test.name, 'pass'); pass++; })
+              .catch(function (err) { line('FAIL ' + test.name + ': ' + err.message, 'fail'); fail++; });
+          });
+        });
+        return chain;
+      })
+      .then(function () {
+        line(fail ? ('FAILURES (' + fail + ')') : ('ALL PASS (' + pass + ')'), 'summary');
+      })
+      .catch(function (err) {
+        line('HARNESS ERROR: ' + err.message, 'fail');
+      });
+  }
+
+  window.t = t;
+  window.assert = assert;
+  window.assertEq = assertEq;
+  window.withFreshPage = withFreshPage;
+
+  // --- Task 1 smoke test ---
+  t('smoke: page loads with form', function (win) {
+    assert(win.document.querySelector('#builderForm'), '#builderForm missing');
+    assert(win.document.querySelector('#generateBtn'), '#generateBtn missing');
+  });
+
+  // --- Task 2: autosave + reset ---
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function setValue(win, id, value) {
+    var el = win.document.getElementById(id);
+    el.value = value;
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+    el.dispatchEvent(new win.Event('change', { bubbles: true }));
+  }
+
+  t('autosave: input writes aib_state_v1 after debounce', async function (win) {
+    setValue(win, 'charName', 'Aria Sterling');
+    await sleep(700);
+    var raw = win.localStorage.getItem('aib_state_v1');
+    assert(raw, 'aib_state_v1 missing');
+    assert(raw.indexOf('Aria Sterling') !== -1, 'value not found in state: ' + raw);
+  });
+
+  t('autosave: reload restores state', async function (win) {
+    setValue(win, 'charName', 'Beta Ray');
+    await sleep(700);
+    await withFreshPage(function (w2) {
+      assertEq(w2.document.getElementById('charName').value, 'Beta Ray', 'input restored');
+      assertEq(w2.document.getElementById('previewName').textContent, 'Beta Ray', 'preview name updated');
+    });
+  });
+
+  t('reset: clears form, state key, and outputs', async function (win) {
+    setValue(win, 'charName', 'Gamma Delta');
+    win.AIB.saveState();
+    win.confirm = function () { return true; };
+    win.document.getElementById('resetBtn').click();
+    assertEq(win.document.getElementById('charName').value, '', 'input cleared');
+    assert(win.localStorage.getItem('aib_state_v1') === null, 'state key removed');
+    var pres = win.document.querySelectorAll('.output-card pre');
+    assert(pres.length > 0, 'no output pre elements found');
+    for (var i = 0; i < pres.length; i++) {
+      assertEq(pres[i].textContent.trim(), '', 'pre not cleared: #' + (pres[i].id || i));
+    }
+  });
+
+  t('reset: keeps saved profiles', async function (win) {
+    win.localStorage.setItem('aib_profiles_v1', JSON.stringify([{ id: 'p1', name: 'A', savedAt: 1, state: {} }]));
+    win.confirm = function () { return true; };
+    win.document.getElementById('resetBtn').click();
+    var p = win.localStorage.getItem('aib_profiles_v1');
+    assert(p && p.indexOf('p1') !== -1, 'profiles must survive reset, got: ' + p);
+  });
+
+  t('autosave: storage failure degrades, no throw', async function (win) {
+    win.Storage.prototype.setItem = function () { throw new Error('quota exceeded'); };
+    var threw = null;
+    try {
+      setValue(win, 'charName', 'Epsilon Zeta');
+      await sleep(700);
+    } catch (e) { threw = e; }
+    assert(!threw, 'exception escaped: ' + (threw && threw.message));
+    var toast = win.document.getElementById('toast');
+    assert(toast.classList.contains('show'), 'toast not visible');
+    assert(toast.textContent.indexOf('Autosave') !== -1, 'unexpected toast text: ' + toast.textContent);
+    assert(win.AIB._storageOff === true, 'AIB._storageOff not set');
+  });
+
+  // --- Task 3: validation ---
+  t('validation: required markers present', function (win) {
+    ['charName', 'charTypeSelect', 'nicheSelect'].forEach(function (id) {
+      var el = win.document.getElementById(id);
+      assertEq(el.getAttribute('aria-required'), 'true', id + ' aria-required');
+      var label = win.document.querySelector('label[for="' + id + '"]');
+      assert(label, id + ' label missing');
+      assert(label.textContent.indexOf('*') !== -1, id + ' label has no *: ' + label.textContent);
+    });
+  });
+
+  t('validation: empty required blocks generate', function (win) {
+    ['charName', 'charTypeSelect', 'nicheSelect'].forEach(function (id) {
+      var el = win.document.getElementById(id);
+      el.value = '';
+      el.dispatchEvent(new win.Event('input', { bubbles: true }));
+      el.dispatchEvent(new win.Event('change', { bubbles: true }));
+    });
+    var before = win.document.getElementById('resultsSection').textContent;
+    win.confirm = function () { return true; };
+    win.document.getElementById('generateBtn').click();
+    var err = win.document.getElementById('charNameError');
+    assert(!err.classList.contains('hidden'), 'charNameError not visible');
+    assert(err.textContent.trim().length > 0, 'charNameError text empty');
+    assertEq(win.document.activeElement, win.document.getElementById('charName'), 'focus first invalid');
+    assertEq(win.document.getElementById('resultsSection').textContent, before, 'results unchanged');
+  });
+
+  t('validation: error clears on input', function (win) {
+    var el = win.document.getElementById('charName');
+    el.value = 'Aria';
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+    var err = win.document.getElementById('charNameError');
+    assert(err.classList.contains('hidden'), 'charNameError still visible after input');
+  });
+
+  t('validation: valid form passes', function (win) {
+    setValue(win, 'charName', 'Aria Sterling');
+    setValue(win, 'charTypeSelect', 'Manusia');
+    setValue(win, 'nicheSelect', 'Fashion');
+    var v = win.AIB.validate();
+    assert(v.ok, 'validate().ok should be true');
+    assertEq(v.firstInvalid, null, 'firstInvalid should be null');
+  });
+
+  // --- Task 4: section navigation ---
+  t('nav: pill count equals visible sections', function (win) {
+    setValue(win, 'charTypeSelect', 'Manusia');
+    var pills = win.document.querySelectorAll('#stepBar .step-pill');
+    assertEq(pills.length, 10, 'pill count');
+    assertEq(win.document.getElementById('sectionCount').textContent, 'Bagian 1 dari 10', 'count text');
+  });
+
+  t('nav: hidden section 06 skipped, count is 9', function (win) {
+    setValue(win, 'charTypeSelect', 'Robot / Mekanik');
+    var pills = win.document.querySelectorAll('#stepBar .step-pill');
+    assertEq(pills.length, 9, 'pill count after non-human');
+    assert(!win.document.querySelector('#stepBar .step-pill[data-target="section6"]'), 'section6 pill must not exist');
+    var count = win.document.getElementById('sectionCount').textContent;
+    assert(count.indexOf('dari 9') !== -1, 'count text: ' + count);
+  });
+
+  t('nav: click pill scrolls and activates', async function (win) {
+    win.document.documentElement.style.scrollBehavior = 'auto';
+    var pill = win.document.querySelector('#stepBar .step-pill[data-target="section3"]');
+    assert(pill, 'section3 pill missing');
+    pill.click();
+    await sleep(300);
+    assert(pill.classList.contains('active'), 'pill not active after click');
+    var top = win.document.getElementById('section3').getBoundingClientRect().top;
+    assert(top >= -5 && top <= 130, 'section3 top = ' + top);
+  });
+
+  t('nav: prev/next move between sections', async function (win) {
+    var before = win.document.querySelector('#stepBar .step-pill.active').getAttribute('data-target');
+    win.document.getElementById('nextSectionBtn').click();
+    await sleep(100);
+    var after = win.document.querySelector('#stepBar .step-pill.active').getAttribute('data-target');
+    assert(after !== before, 'active target unchanged: ' + before);
+    assertEq(win.document.getElementById('sectionCount').textContent, 'Bagian 4 dari 9', 'count after next');
+  });
+
+  // --- Task 5: dark mode ---
+  t('theme: first visit matches system', async function (win) {
+    win.localStorage.removeItem('aib_theme');
+    await withFreshPage(function (w2) {
+      var expected = w2.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      assertEq(w2.document.documentElement.getAttribute('data-theme'), expected, 'data-theme');
+    });
+  });
+
+  t('theme: toggle sets dark and persists', function (win) {
+    win.document.getElementById('themeToggle').click();
+    assertEq(win.document.documentElement.getAttribute('data-theme'), 'dark', 'data-theme after toggle');
+    assertEq(win.localStorage.getItem('aib_theme'), 'dark', 'stored theme');
+  });
+
+  t('theme: choice persists across reload, system light ignored', async function (win) {
+    win.localStorage.setItem('aib_theme', 'dark');
+    await withFreshPage(function (w2) {
+      assertEq(w2.document.documentElement.getAttribute('data-theme'), 'dark', 'data-theme after reload');
+    });
+  });
+
+  t('theme: dark palette applied', function (win) {
+    var inkDark = win.getComputedStyle(win.document.documentElement).getPropertyValue('--ink').trim().toLowerCase();
+    assertEq(inkDark, '#e2e8f0', '--ink in dark');
+    var darkBg = win.getComputedStyle(win.document.body).backgroundColor;
+    win.document.getElementById('themeToggle').click();
+    var lightBg = win.getComputedStyle(win.document.body).backgroundColor;
+    assert(darkBg !== lightBg, 'body bg identical in dark and light: ' + darkBg);
+    var inkLight = win.getComputedStyle(win.document.documentElement).getPropertyValue('--ink').trim().toLowerCase();
+    assertEq(inkLight, '#0f172a', '--ink in light');
+  });
+
+  // --- Task 6: multi-character profiles ---
+  t('profile: save new creates profile and activates it', function (win) {
+    win.localStorage.removeItem('aib_profiles_v1');
+    win.localStorage.removeItem('aib_current_profile');
+    win.localStorage.removeItem('aib_state_v1');
+    win.prompt = function () { return 'Aria'; };
+    setValue(win, 'charName', 'Aria Sterling');
+    win.document.getElementById('saveProfileBtn').click();
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(list.length, 1, 'profile count');
+    assert(JSON.stringify(list[0].state).indexOf('Aria Sterling') !== -1, 'state lacks character name');
+    assertEq(win.localStorage.getItem('aib_current_profile'), list[0].id, 'current profile id');
+    var sel = win.document.getElementById('profileSelect');
+    assertEq(sel.value, list[0].id, 'select value');
+    assertEq(sel.options[sel.selectedIndex].textContent, 'Aria', 'select label');
+  });
+
+  t('profile: switch flushes edits', async function (win) {
+    setValue(win, 'charName', 'Beta Ray');
+    await sleep(700);
+    win.prompt = function () { return 'Kedua'; };
+    win.document.getElementById('saveProfileBtn').click();
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(list.length, 2, 'two profiles');
+    var sel = win.document.getElementById('profileSelect');
+    sel.value = list[0].id;
+    sel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assert(JSON.stringify(after[0].state).indexOf('Beta Ray') !== -1,
+      'first profile not flushed on switch: ' + JSON.stringify(after[0].state).slice(0, 160));
+  });
+
+  t('profile: reload restores working state', async function (win) {
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    win.localStorage.setItem('aib_state_v1', JSON.stringify({ charName: 'Gamma Delta' }));
+    win.localStorage.setItem('aib_current_profile', list[0].id);
+    await withFreshPage(function (w2) {
+      assertEq(w2.document.getElementById('charName').value, 'Gamma Delta', 'working state wins over profile snapshot');
+    });
+  });
+
+  t('profile: export/import round-trip', function (win) {
+    var arr = JSON.parse(win.AIB.profiles.exportJSON());
+    assertEq(arr.length, 2, 'exported count');
+    var payload = JSON.stringify([
+      { id: arr[0].id, name: 'Aria Updated', savedAt: 999, state: { charName: 'Updated' } },
+      { id: 'p-new-1', name: 'Baru', savedAt: 999, state: { charName: 'Baru' } }
+    ]);
+    var r = win.AIB.profiles.importJSON(payload);
+    assertEq(r.added, 1, 'added');
+    assertEq(r.updated, 1, 'updated');
+    var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(after.length, 3, 'total after import');
+    var updated = after.filter(function (p) { return p.id === arr[0].id; })[0];
+    assertEq(updated.name, 'Aria Updated', 'existing profile updated in place');
+  });
+
+  t('profile: delete removes only that profile', function (win) {
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(list.length, 3, 'three profiles before delete');
+    win.confirm = function () { return true; };
+    var current = win.localStorage.getItem('aib_current_profile');
+    var sel = win.document.getElementById('profileSelect');
+    sel.value = current;
+    win.document.getElementById('deleteProfileBtn').click();
+    var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assertEq(after.length, 2, 'two profiles left');
+    assert(!after.some(function (p) { return p.id === current; }), 'deleted profile still present');
+    assert(after.some(function (p) { return p.id === list[1].id; }), 'unrelated profile lost');
+    assertEq(win.localStorage.getItem('aib_current_profile'), null, 'current profile pointer cleared');
+  });
+
+  // --- Review pass: security + robustness ---
+  t('security: imported profile state cannot inject HTML', async function (win) {
+    var payload = {
+      charName: '<img src=x onerror="window.__pwned=1">',
+      charTypeSelect: 'Lainnya',
+      charTypeOther: '<b id="xss-b">bad</b>',
+      nicheSelect: 'Lainnya',
+      nicheOther: '<i id="xss-i">bad</i>',
+      charProfession: 'Tester'
+    };
+    win.AIB.profiles.importJSON(JSON.stringify([
+      { id: 'xss-1', name: 'XSS', savedAt: 1, state: payload }
+    ]));
+    win.AIB.profiles.load('xss-1');
+    assert(!win.document.getElementById('xss-b'), 'injected <b> element in preview');
+    assert(!win.document.getElementById('xss-i'), 'injected <i> element in preview');
+    var facts = win.document.getElementById('previewFacts');
+    assert(facts.textContent.indexOf('<b id="xss-b">') !== -1, 'charTypeOther text lost from facts');
+    win.document.getElementById('generateBtn').click();
+    await sleep(3200); // runProgress ~2420ms
+    assert(!win.document.getElementById('xss-b'), 'injected <b> element in summary');
+    assert(!win.document.querySelector('#summaryBody img'), 'injected <img> in summary');
+    assert(win.__pwned === undefined, 'onerror handler executed');
+    var summary = win.document.getElementById('summaryBody');
+    assert(summary.textContent.indexOf('<img src=x') !== -1, 'charName text lost from summary');
+    win.AIB.profiles.remove('xss-1');
+  });
+
+  t('autosave: corrupt profiles key does not kill autosave', async function (win) {
+    win.localStorage.setItem('aib_profiles_v1', '{corrupt json');
+    win.localStorage.setItem('aib_current_profile', 'px');
+    try {
+      setValue(win, 'charName', 'Delta Sierra');
+      await sleep(700);
+      assert(win.AIB._storageOff !== true, 'autosave disabled by corrupt profiles key');
+      var raw = win.localStorage.getItem('aib_state_v1');
+      assert(raw && raw.indexOf('Delta Sierra') !== -1, 'working state not saved: ' + raw);
+    } finally {
+      win.localStorage.removeItem('aib_profiles_v1');
+      win.localStorage.removeItem('aib_current_profile');
+    }
+  });
+
+  t('reset: clears active profile pointer, keeps profiles', function (win) {
+    var p = win.AIB.profiles.saveNew('Reset Target');
+    assert(p, 'saveNew returned nothing');
+    assertEq(win.localStorage.getItem('aib_current_profile'), p.id, 'pointer not set after saveNew');
+    win.confirm = function () { return true; };
+    win.document.getElementById('resetBtn').click();
+    assertEq(win.localStorage.getItem('aib_current_profile'), null, 'pointer survives reset');
+    var list = JSON.parse(win.localStorage.getItem('aib_profiles_v1'));
+    assert(list.some(function (x) { return x.id === p.id; }), 'profile deleted by reset');
+  });
+
+  t('profile: failed write toasts error, not success', function (win) {
+    var orig = win.Storage.prototype.setItem;
+    win.Storage.prototype.setItem = function () { throw new Error('quota exceeded'); };
+    var before = JSON.parse(win.localStorage.getItem('aib_profiles_v1') || '[]').length;
+    try {
+      win.prompt = function () { return 'Gagal Save'; };
+      win.document.getElementById('saveProfileBtn').click();
+      var toast = win.document.getElementById('toast');
+      assert(toast.classList.contains('error'), 'toast not marked error: ' + toast.textContent);
+      assert(toast.textContent.indexOf('disimpan') === -1, 'false success toast: ' + toast.textContent);
+      var after = JSON.parse(win.localStorage.getItem('aib_profiles_v1') || '[]').length;
+      assertEq(after, before, 'profile count changed despite failed write');
+    } finally {
+      win.Storage.prototype.setItem = orig;
+      win.AIB._storageOff = false;
+    }
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>
