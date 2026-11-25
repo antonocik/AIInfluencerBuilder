@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>AI Influencer Builder — tests</title>
+<style>
+  body { font-family: monospace; margin: 16px; }
+  #results div { padding: 2px 0; }
+  #results .fail { color: #b91c1c; font-weight: bold; }
+  #results .pass { color: #15803d; }
+  #results .summary { margin-top: 8px; font-weight: bold; }
+  iframe { width: 100%; height: 640px; border: 1px solid #cbd5e1; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>AI Influencer Builder — tests</h1>
+<div id="results"></div>
+<iframe id="app" src="index.html"></iframe>
+<script>
+(function () {
+  'use strict';
+
+  var tests = [];
+  function t(name, fn) { tests.push({ name: name, fn: fn }); }
+  function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+  function assertEq(actual, expected, msg) {
+    if (actual !== expected) {
+      throw new Error((msg ? msg + ': ' : '') + 'expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+    }
+  }
+
+  var frame = document.getElementById('app');
+  var results = document.getElementById('results');
+
+  function waitReady(win) {
+    return new Promise(function (resolve, reject) {
+      var started = Date.now();
+      (function poll() {
+        try {
+          var doc = win.document;
+          if (doc && doc.readyState === 'complete' && doc.querySelector('#builderForm')) {
+            return resolve(win);
+          }
+        } catch (e) { /* frame navigating */ }
+        if (Date.now() - started > 15000) return reject(new Error('iframe not ready in 15s'));
+        setTimeout(poll, 50);
+      })();
+    });
+  }
+
+  function freshPage() {
+    return new Promise(function (resolve, reject) {
+      frame.onload = function () {
+        waitReady(frame.contentWindow).then(resolve, reject);
+      };
+      frame.src = 'index.html?fresh=' + Date.now();
+      setTimeout(function () {
+        if (frame.contentWindow && frame.contentWindow.document &&
+            frame.contentWindow.document.readyState === 'complete' &&
+            frame.contentWindow.document.querySelector('#builderForm')) {
+          resolve(frame.contentWindow);
+        }
+      }, 15000);
+    });
+  }
+
+  function withFreshPage(fn) {
+    return freshPage().then(function (win) { return fn(win); });
+  }
+
+  function line(text, cls) {
+    var d = document.createElement('div');
+    d.textContent = text;
+    if (cls) d.className = cls;
+    results.appendChild(d);
+    document.title = text;
+    return d;
+  }
+
+  function run() {
+    var pass = 0, fail = 0;
+    return waitReady(frame.contentWindow)
+      .then(function (win) {
+        var chain = Promise.resolve();
+        tests.forEach(function (test) {
+          chain = chain.then(function () {
+            return Promise.resolve()
+              .then(function () { return test.fn(win); })
+              .then(function () { line('PASS ' + test.name, 'pass'); pass++; })
+              .catch(function (err) { line('FAIL ' + test.name + ': ' + err.message, 'fail'); fail++; });
+          });
+        });
+        return chain;
+      })
+      .then(function () {
+        line(fail ? ('FAILURES (' + fail + ')') : ('ALL PASS (' + pass + ')'), 'summary');
+      })
+      .catch(function (err) {
+        line('HARNESS ERROR: ' + err.message, 'fail');
+      });
+  }
+
+  window.t = t;
+  window.assert = assert;
+  window.assertEq = assertEq;
+  window.withFreshPage = withFreshPage;
+
+  // --- Task 1 smoke test ---
+  t('smoke: page loads with form', function (win) {
+    assert(win.document.querySelector('#builderForm'), '#builderForm missing');
+    assert(win.document.querySelector('#generateBtn'), '#generateBtn missing');
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>
